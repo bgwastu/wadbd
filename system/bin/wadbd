@@ -143,10 +143,9 @@ bind_interface() {
     apply_iptables_rules "$port" "$BIND_FILE"
 
     # Fetch IP separately (avoid toybox sh local+subshell scoping bug)
-    local _ip_addr
-    _ip_addr=$(ip -f inet addr show "$iface" 2>/dev/null | grep -oE 'inet [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1 | awk '{print $2}')
+    _bind_ip_addr=$(ip -f inet addr show "$iface" 2>/dev/null | grep -oE 'inet [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1 | awk '{print $2}')
     echo -e "${GREEN} => ADB bound to interface '$iface'${NC}"
-    [ -n "$_ip_addr" ] && echo -e "${GREEN}    IP: $_ip_addr | Connect: adb connect $_ip_addr:$port${NC}"
+    [ -n "$_bind_ip_addr" ] && echo -e "${GREEN}    IP: $_bind_ip_addr | Connect: adb connect $_bind_ip_addr:$port${NC}"
     echo -e "${YELLOW}    ADB is now restricted to this interface + localhost only.${NC}"
 
     return 0
