@@ -244,8 +244,8 @@ bind_status() {
 
 list_interfaces() {
     echo -e "${YELLOW}Available network interfaces:${NC}"
-    ip link show | grep -E '^[0-9]+:' | awk -F': ' '{print $2}' | while read -r iface; do
-        [ "$iface" = "lo" ] && continue
+    # Real interfaces only — skip kernel virtual/tunnel cruft
+    ip link show | grep -E '^[0-9]+:' | awk -F': ' '{print $2}' | grep -vE '^(lo|dummy|ifb|gre|gretap|erspan|tunl|sit|ip6|ip_vti|ccmni|miw|p2p)' | while read -r iface; do
         local state=$(ip link show "$iface" 2>/dev/null | grep -oE 'state [A-Z]+' | awk '{print $2}')
         local ip_addr=$(ip -f inet addr show "$iface" 2>/dev/null | grep -oE 'inet [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1 | awk '{print $2}')
         local mac=$(ip link show "$iface" 2>/dev/null | grep -oE 'link/ether ([0-9a-f]{2}:){5}[0-9a-f]{2}' | awk '{print $2}' | head -1)
