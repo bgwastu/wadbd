@@ -36,6 +36,8 @@ usage() {
     echo -e "  $cmd --backup <path>        - Backup authorized adb_keys"
     echo -e "  $cmd --restore <path>       - Restore backed up adb_keys"
     echo -e "  $cmd --clear-keys           - Revokes all authorized Keys"
+    echo -e "  $cmd --list-keys            - List all authorized ADB keys"
+    echo -e "  $cmd --remove-key <id>      - Remove a specific authorized key by ID"
     echo -e "\n${YELLOW}Note:${NC} If you don't specify a port, it will use the default port 5555."
     exit 1
 }
@@ -391,6 +393,50 @@ remove_keys(){
     echo -e "${PINK}ADB keys cleared successfully.${NC}"
 }
 
+list_keys(){
+    if [ ! -f /data/misc/adb/adb_keys ] || [ ! -s /data/misc/adb/adb_keys ]; then
+        echo -e "${YELLOW}No authorized ADB keys found.${NC}"
+        return 0
+    fi
+    local id=0
+    echo -e "${YELLOW}── Authorized ADB Keys ──${NC}"
+    while IFS= read -r line; do
+        [ -z "$line" ] && continue
+        # Extract user@host comment from the base64 key
+        local comment=$(echo "$line" | base64 -d 2>/dev/null | strings | grep -E '[@]' | head -1)
+        [ -z "$comment" ] && comment="(unknown)"
+        local hash=$(echo "$line" | md5sum 2>/dev/null | awk '{print $1}' | head -c 8)
+        [ -z "$hash" ] && hash=$(echo "$line" | sha256sum 2>/dev/null | awk '{print $1}' | head -c 8)
+        echo -e "  ${GREEN}[$id]${NC} $comment  ${PINK}(hash: $hash)${NC}"
+        id=$((id + 1))
+    done < /data/misc/adb/adb_keys
+    return 0
+}
+
+remove_key(){
+    local key_id="$1"
+    if [ -z "$key_id" ] || ! echo "$key_id" | grep -qE '^[0-9]+$'; then
+        echo -e "${PINK}Error: Valid key ID (number) required. Use --list-keys to see IDs.${NC}"
+        exit 1
+    fi
+    if [ ! -f /data/misc/adb/adb_keys ] || [ ! -s /data/misc/adb/adb_keys ]; then
+        echo -e "${YELLOW}No authorized ADB keys to remove.${NC}"
+        exit 0
+    fi
+    local id=0
+    local tmp=$(mktemp)
+    while IFS= read -r line; do
+        if [ "$id" -ne "$key_id" ]; then
+            echo "$line" >> "$tmp"
+        fi
+        id=$((id + 1))
+    done < /data/misc/adb/adb_keys
+    mv "$tmp" /data/misc/adb/adb_keys
+    chmod 640 /data/misc/adb/adb_keys
+    chown 1000:2000 /data/misc/adb/adb_keys
+    echo -e "${GREEN}Key [$key_id] removed. Run 'wadbd --list-keys' to verify.${NC}"
+}
+
 validate_adbkey_pub() {
     local key_file="$1"
     if ! head -n 1 "$key_file" | grep -qE '^QAAA'; then
@@ -521,6 +567,12 @@ case "$1" in
         ;;
     --clear-keys)
         remove_keys
+        ;;
+    --list-keys)
+        list_keys
+        ;;
+    --remove-key)
+        remove_key "$2"
         ;;
     --backup)
         backup_adb_keys "$2"
