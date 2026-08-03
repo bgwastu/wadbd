@@ -1,0 +1,34 @@
+name: wadbd-actions
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Get commit hash
+        run: echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+        
+      - name: Update module.prop
+        run: |
+          sed -i '/^updateJson=/d' module.prop
+          sed -i "s/^version=.*/version=gh-actions-${COMMIT_HASH}/" module.prop
+          
+      - name: Remove Unnecessary Files
+        run: |
+          rm -rf .github LICENSE README.md changelog.md updateJson
+          
+      - name: Upload Magisk Module Files
+        uses: actions/upload-artifact@v4
+        with:
+          name: wadbd-${{ env.COMMIT_HASH }}
+          path: .
+          if-no-files-found: error
+          retention-days: 90
