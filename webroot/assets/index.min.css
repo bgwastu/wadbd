@@ -796,3 +796,91 @@ input:checked + .toggle-slider:before {
     opacity: 0.3;
     cursor: not-allowed;
 }
+
+/* ─── Key Management UI ──────────────────────── */
+
+.keyst-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.keyst-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
+
+.keyst-item .key-id {
+    font-weight: 700;
+    color: var(--success);
+    font-family: monospace;
+    min-width: 24px;
+}
+
+.keyst-item .key-comment {
+    flex: 1;
+    margin-left: 10px;
+    font-size: 13px;
+    color: var(--text);
+    font-family: monospace;
+    word-break: break-all;
+}
+
+.keyst-item .key-hash {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-family: monospace;
+    margin-right: 10px;
+}
+
+.keyst-item .remove-key-btn {
+    background: var(--danger);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.keyst-item .remove-key-btn:hover {
+    background: #c0392b;
+}
+
+[data-theme="light"] .keyst-item .remove-key-btn {
+    background: #e74c3c;
+}
+
+.keyst-empty {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.keyst-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.keyst-actions .action-button {
+    flex: 1;
+    font-size: 12px;
+    padding: 8px;
+}
+
+.keyst-actions .action-button.danger {
+    background: var(--danger);
+}
+
+[data-theme="light"] .keyst-actions .action-button.danger {
+    background: #e74c3c;
+    color: white;
+}

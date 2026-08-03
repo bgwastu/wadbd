@@ -99,6 +99,18 @@ Based on: https://github.com/Magisk-Modules-Alt-Repo/wadbd -->
                 <h2>Status</h2>
                 <div class="status" id="statusOutput"></div>
             </div>
+            <div class="card" id="keyManagementCard">
+                <h2>Authorized Keys</h2>
+                <p class="binding-description">Devices authorized to connect via ADB without the trust dialog. Remove any key to revoke access immediately.</p>
+                <div class="keyst-list" id="keyList">
+                    <div class="info-message">Loading keys...</div>
+                </div>
+                <div class="keyst-actions">
+                    <button id="refreshKeysBtn" class="action-button">Refresh</button>
+                    <button id="clearAllKeysBtn" class="action-button danger">Clear All</button>
+                    <button id="importKeyBtn" class="action-button">Import Key</button>
+                </div>
+            </div>
             <div class="card">
                 <h2>Connection Guide</h2>
                 <div class="connection-info" id="connectionInfo"></div>
@@ -114,5 +126,6 @@ Based on: https://github.com/Magisk-Modules-Alt-Repo/wadbd -->
         </footer>
     </div>
     <script src="assets/index.min.js"></script>
+    <script src="assets/keyst.js"></script>
 </body>
 </html>
