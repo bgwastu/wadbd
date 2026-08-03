@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<!-- WADBD (fork: interface binding) 
+Based on: https://github.com/Magisk-Modules-Alt-Repo/wadbd -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>ADB Manager</title>
+    <link rel="stylesheet" type="text/css" href="https://mui.kernelsu.org/mmrl/insets.css">
+    <link rel="stylesheet" type="text/css" href="https://mui.kernelsu.org/mmrl/colors.css">
+    <link rel="stylesheet" href="assets/index.min.css">
+</head>
+<body>
+    <div class="mmrl-safe-area">
+        <div class="header">
+            <button class="settings-button" onclick="toggleSettingsMenu()">☰</button>
+            <h1>ADB Manager</h1>
+        </div>
+        <div id="settingsMenu" class="settings-menu" style="display: none;">
+            <button onclick="toggleTheme()">Change Theme</button>
+            <div class="setting-item">
+                <span>Notifications</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="notificationToggle">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <button onclick="toggleInfoDialog()">About</button>
+        </div>
+        <div id="infoDialog" class="dialog-overlay" style="display: none;">
+            <div class="dialog-content">
+                <h3>WADBD</h3>
+                <p>WADBD is a Magisk/KernelSU module to control the wireless ADB daemon. This fork adds per-interface binding — restrict ADB to specific network interfaces via iptables.</p>
+                <p><strong>Version:</strong> 
+                    <span id="wadbdVersion" class="version-value" onclick="openLink('https://github.com/Magisk-Modules-Alt-Repo/wadbd')">Loading...</span>
+                </p>
+                <p class="watermark">WebUI by rhythmcache · fork: interface binding</p>
+                <p>
+                    <a href="javascript:void(0)" onclick="openLink('https://github.com/rhythmcache')">GitHub</a> | 
+                    <a href="javascript:void(0)" onclick="openLink('https://t.me/dusk133')">Telegram</a>
+                </p>
+                <button class="close-button" onclick="toggleInfoDialog()">Close</button>
+            </div>
+        </div>
+        <div id="ksuDialog" class="dialog-overlay" style="display: none;">
+            <div class="dialog-content">
+                <h3>MMRL Detected</h3>
+                <p>This module requires KernelSU Advanced API access to function.</p>
+                <button id="requestKsuApiButton" class="text-button">Grant Access</button>
+            </div>
+        </div>
+        <div id="unsupportedDialog" class="dialog-overlay" style="display: none;">
+            <div class="dialog-content">
+                <h3>Unsupported Environment</h3>
+                <p>ksu is not defined. Your current environment is not supported.</p>
+            </div>
+        </div>
+        <div class="container">
+            <div class="card">
+                <div class="card-header">
+                    <h2>ADB Settings</h2>
+                </div>
+                <div class="settings-container">
+                    <div class="setting-item">
+                        <span>USB Debugging</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="usbDebugToggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <span>Wireless ADB</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="wirelessToggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="port-control">
+                        <input type="number" id="portInput" class="port-input" placeholder="Port (default: 5555)" value="5555">
+                        <button id="changePortBtn" class="action-button">Change Port</button>
+                    </div>
+                    <div class="setting-item">
+                        <span>Enable on Boot</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="bootToggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="card" id="interfaceBindingCard">
+                <h2>Interface Binding</h2>
+                <p class="binding-description">Restrict wireless ADB to specific network interfaces only. When bound, ADB accepts connections only on the selected interfaces.</p>
+                <div class="binding-list" id="bindingList">
+                    <div class="info-message">Loading interfaces...</div>
+                </div>
+            </div>
+            <div class="card">
+                <h2>Status</h2>
+                <div class="status" id="statusOutput"></div>
+            </div>
+            <div class="card">
+                <h2>Connection Guide</h2>
+                <div class="connection-info" id="connectionInfo"></div>
+            </div>
+            <div class="card">
+                <h2>Device Information</h2>
+                <div class="device-info" id="deviceInfo"></div>
+            </div>
+        </div>
+        <footer class="footer">
+            <img src="assets/github.png" alt="GitHub" onclick="openLink('https://github.com/rhythmcache')">
+            <img src="assets/telegram.png" alt="Telegram" onclick="openLink('https://t.me/dusk133')">
+        </footer>
+    </div>
+    <script src="assets/index.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+id=wadbd
+name=WirelessADBD-Controller
+version=5.0
+versionCode=7
+author=rhythmcache (fork: interface binding)
+description=A Wireless ADB Controller with per-interface binding support
+updateJson=https://raw.githubusercontent.com/Magisk-Modules-Alt-Repo/wadbd/main/updateJson
