@@ -344,9 +344,9 @@ check_wireless_adb_status() {
     fi
     
     # Check if wireless ADB is enabled on boot
-    local module_path="/data/adb/modules/wadbd/service.sh"
-    if [ -f "$module_path" ]; then
-        boot_port=$(awk '/setprop service.adb.tcp.port/ {print $3}' "$module_path")
+    local boot_flag="/data/adb/modules/wadbd/enable_on_boot"
+    if [ -f "$boot_flag" ]; then
+        local boot_port=$(cat "$boot_flag")
         if [ -n "$boot_port" ]; then
             echo -e "${GREEN} => Wireless ADB on boot is enabled on port $boot_port.${NC}"
         else
@@ -368,40 +368,12 @@ enable_on_boot() {
     local module_path="/data/adb/modules/wadbd"
     mkdir -p "$module_path"
 
-    # Build service.sh with binding support
-    cat >"$module_path/service.sh" <<SERVICEEOF
-#!/system/bin/sh
-while [ "\$(getprop sys.boot_completed)" != "1" ]; do
-    sleep 2
-done
-setprop service.adb.tcp.port $port
-stop adbd
-start adbd
-sleep 1
+    # Write boot flag — service.sh reads this
+    echo "$port" > "$module_path/enable_on_boot"
+    chmod 644 "$module_path/enable_on_boot"
 
-# Apply interface bindings from boot
-BIND_FILE="/data/adb/modules/wadbd/bind_ifaces"
-if [ -f "\$BIND_FILE" ] && [ -s "\$BIND_FILE" ]; then
-    # Flush existing
-    while iptables -L INPUT -n --line-numbers 2>/dev/null | grep -q "dpt:$port"; do
-        local line=\$(iptables -L INPUT -n --line-numbers 2>/dev/null | grep "dpt:$port" | head -1 | awk '{print \$1}')
-        [ -z "\$line" ] && break
-        iptables -D INPUT "\$line" 2>/dev/null
-    done
-    iptables -A INPUT -p tcp --dport "$port" -j DROP
-    iptables -I INPUT -i lo -p tcp --dport "$port" -j ACCEPT
-    while IFS= read -r iface; do
-        iface=\$(echo "\$iface" | tr -d '[:space:]')
-        [ -z "\$iface" ] && continue
-        iptables -I INPUT -i "\$iface" -p tcp --dport "$port" -j ACCEPT
-    done < "\$BIND_FILE"
-fi
-
-su -lp 2000 -c "cmd notification post -S bigtext -t 'WADBD' 'Tag' 'Wireless ADBD Enabled on port $port !!'" > /dev/null 2>&1
-exit
-SERVICEEOF
-    chmod 755 "$module_path/service.sh"
     echo -e "${GREEN} => Wireless ADB will now be enabled on boot with port $port.${NC}"
+    echo -e "${GREEN}    Interface bindings (if any) will also be restored.${NC}"
     su -lp 2000 -c "cmd notification post -S bigtext -t 'WADBD' 'Tag' 'Wireless ADB on boot will now be Enabled on port $port !!'" > /dev/null 2>&1
 }
 
@@ -409,10 +381,10 @@ disable_on_boot() {
     local module_path="/data/adb/modules/wadbd"
     if [ -f "$module_path/service.sh" ]; then
         rm -f "$module_path/service.sh"
-        echo -e "${GREEN} => Wireless ADB will no longer be enabled on boot.${NC}"
-    else
-        echo -e "${PINK} => Wireless ADB on boot is already disabled.${NC}"
     fi
+    # Also clear the boot flag file
+    rm -f "$module_path/enable_on_boot"
+    echo -e "${GREEN} => Wireless ADB will no longer be enabled on boot.${NC}"
 }
 
 remove_keys(){
