@@ -3,8 +3,8 @@
 # Runs as part of KernelSU/Magisk boot stage
 
 MODPATH="/data/adb/modules/wadbd"
-BOOT_FLAG="$MODPATH/enable_on_boot"
-BIND_FILE="$MODPATH/bind_ifaces"
+BOOT_FLAG="/data/adb/wadbd/enable_on_boot"
+BIND_FILE="/data/adb/wadbd/bind_ifaces"
 
 # Wait for full boot
 while [ "$(getprop sys.boot_completed)" != "1" ]; do
