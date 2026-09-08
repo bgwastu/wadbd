@@ -1,8 +1,8 @@
 #!/bin/sh
 
-# WADBD - Wireless ADB Controller (fork: interface binding)
+# WADBD - Wireless ADB Controller (fork: interface & subnet binding)
 # Forked from: https://github.com/Magisk-Modules-Alt-Repo/wadbd
-# Adds per-interface iptables binding for ADB
+# Adds per-interface, wildcard (tun+), and subnet (CIDR) iptables binding for ADB
 
 GREEN='\033[0;32m'
 PINK='\033[1;35m'
@@ -11,25 +11,26 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 MODULE_PATH="/data/adb/modules/wadbd"
-BIND_FILE="/data/adb/wadbd/bind_ifaces"
-BOOT_FLAG="/data/adb/wadbd/enable_on_boot"
+PERSIST_PATH="/data/adb/wadbd"
+BIND_FILE="$PERSIST_PATH/bind_ifaces"
+BOOT_FLAG="$PERSIST_PATH/enable_on_boot"
+
 # Ensure persistent data dir
-mkdir -p /data/adb/wadbd 2>/dev/null
-ADB_PORT=$(getprop service.adb.tcp.port)
+mkdir -p "$PERSIST_PATH" 2>/dev/null
 
 usage() {
     local cmd=$(basename "$0")
     echo -e "${PINK}Usage: $cmd [on <port>|off|status|enable-on-boot <port>|disable-on-boot]${NC}"
-    echo -e "${PINK}       $cmd bind <interface>|unbind <interface>|unbind-all|bind-status${NC}"
+    echo -e "${PINK}       $cmd bind <target>|unbind <target>|unbind-all|bind-status${NC}"
     echo -e "\n${YELLOW}Commands:${NC}"
     echo -e "  $cmd on <port>              - Enable wireless ADB on the specified port."
     echo -e "  $cmd off                    - Disable wireless ADB."
     echo -e "  $cmd status                 - Show the status of wireless ADB."
     echo -e "  $cmd enable-on-boot <port>  - Enable wireless ADB on boot with the specified port."
     echo -e "  $cmd disable-on-boot        - Disable wireless ADB on boot."
-    echo -e "  $cmd bind <interface>       - Restrict ADB to a specific network interface via iptables."
-    echo -e "  $cmd unbind <interface>     - Remove interface restriction."
-    echo -e "  $cmd unbind-all             - Remove all interface restrictions."
+    echo -e "  $cmd bind <target>          - Restrict ADB to an interface, wildcard (tun+), or subnet."
+    echo -e "  $cmd unbind <target>        - Remove target restriction."
+    echo -e "  $cmd unbind-all             - Remove all interface/subnet restrictions."
     echo -e "  $cmd bind-status            - Show current binding state."
     echo -e "  $cmd list-interfaces        - List available network interfaces."
     echo -e "  $cmd --import-key <path>    - Import an adbkey.pub file to authorize ADB without prompt."
@@ -38,6 +39,11 @@ usage() {
     echo -e "  $cmd --clear-keys           - Revokes all authorized Keys"
     echo -e "  $cmd --list-keys            - List all authorized ADB keys"
     echo -e "  $cmd --remove-key <id>      - Remove a specific authorized key by ID"
+    echo -e "\n${YELLOW}Target Examples:${NC}"
+    echo -e "  $cmd bind wlan0             - Bind to Wi-Fi only"
+    echo -e "  $cmd bind tun+              - Bind to all VPN tunnels (matches tun0, tun1, etc. dynamically)"
+    echo -e "  $cmd bind tailscale         - Alias for Tailscale (100.64.0.0/10)"
+    echo -e "  $cmd bind 192.168.1.0/24    - Restrict ADB to specific subnet CIDR"
     echo -e "\n${YELLOW}Note:${NC} If you don't specify a port, it will use the default port 5555."
     exit 1
 }
@@ -48,8 +54,6 @@ check_root() {
         exit 1
     fi
 }
-
-# ─── Interface Binding Core ───────────────────────────────────────
 
 get_adb_port() {
     local port=$(getprop service.adb.tcp.port)
@@ -78,11 +82,17 @@ apply_iptables_rules() {
     # Always allow localhost
     iptables -I INPUT -i lo -p tcp --dport "$port" -j ACCEPT
 
-    # Allow each bound interface
-    while IFS= read -r iface; do
-        iface=$(echo "$iface" | tr -d '[:space:]')
-        [ -z "$iface" ] && continue
-        iptables -I INPUT -i "$iface" -p tcp --dport "$port" -j ACCEPT
+    # Allow each bound interface or subnet
+    while IFS= read -r target; do
+        target=$(echo "$target" | tr -d '[:space:]')
+        [ -z "$target" ] && continue
+        if echo "$target" | grep -q "/"; then
+            # Subnet CIDR
+            iptables -I INPUT -s "$target" -p tcp --dport "$port" -j ACCEPT
+        else
+            # Interface or wildcard (e.g. wlan0, tun+, tun0)
+            iptables -I INPUT -i "$target" -p tcp --dport "$port" -j ACCEPT
+        fi
     done < "$bind_file"
 
     return 0
@@ -90,12 +100,8 @@ apply_iptables_rules() {
 
 flush_adb_rules() {
     local port=$1
-
-    # Remove all iptables rules referencing the ADB port
-    while iptables -L INPUT -n --line-numbers 2>/dev/null | grep -q "dpt:$port"; do
-        local line=$(iptables -L INPUT -n --line-numbers 2>/dev/null | grep "dpt:$port" | head -1 | awk '{print $1}')
-        [ -z "$line" ] && break
-        iptables -D INPUT "$line" 2>/dev/null
+    iptables -L INPUT -n --line-numbers 2>/dev/null | grep "dpt:$port" | awk '{print $1}' | sort -nr | while read num; do
+        iptables -D INPUT "$num" 2>/dev/null
     done
     return 0
 }
@@ -110,21 +116,46 @@ rebuild_bindings() {
     return 0
 }
 
-bind_interface() {
-    local iface="$1"
+resolve_target() {
+    local t="$1"
+    case "$t" in
+        tailscale) echo "100.64.0.0/10" ;;
+        mesh)      echo "100.96.0.0/12" ;;
+        *)                 echo "$t" ;;
+    esac
+}
 
-    if [ -z "$iface" ]; then
-        echo -e "${PINK}Error: No interface specified.${NC}"
-        echo -e "${YELLOW}Usage: wadbd bind <interface>${NC}"
+bind_interface() {
+    local input="$1"
+
+    if [ -z "$input" ]; then
+        echo -e "${PINK}Error: No target specified.${NC}"
+        echo -e "${YELLOW}Usage: wadbd bind <interface|subnet|preset>${NC}"
+        echo -e "${YELLOW}Presets: tailscale (100.64.0.0/10), tun+ (all tunnels)${NC}"
         return 1
     fi
 
-    # Check interface exists
-    if ! ip link show "$iface" >/dev/null 2>&1; then
-        echo -e "${PINK}Error: Interface '$iface' does not exist.${NC}"
-        echo -e "${YELLOW}Available interfaces:${NC}"
-        ip link show | grep -E '^[0-9]+:' | awk -F': ' '{print "  " $2}' | grep -v '^lo$'
-        return 1
+    local target=$(resolve_target "$input")
+
+    # Validate target
+    if echo "$target" | grep -q "/"; then
+        # Subnet CIDR validation
+        if ! echo "$target" | grep -qE '^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$'; then
+            echo -e "${PINK}Error: Invalid CIDR subnet format '$target'. Expected e.g. 192.168.1.0/24${NC}"
+            return 1
+        fi
+    elif echo "$target" | grep -q '\+$'; then
+        # Wildcard interface supported natively by iptables
+        :
+    else
+        # Concrete interface
+        if ! ip link show "$target" >/dev/null 2>&1; then
+            echo -e "${PINK}Error: Interface '$target' does not exist.${NC}"
+            echo -e "${YELLOW}Tip: Use 'tun+' to match any dynamic VPN tunnel.${NC}"
+            echo -e "${YELLOW}Available interfaces:${NC}"
+            ip link show | grep -E '^[0-9]+:' | awk -F': ' '{print "  " $2}' | grep -v '^lo$'
+            return 1
+        fi
     fi
 
     local port=$(get_adb_port)
@@ -135,47 +166,53 @@ bind_interface() {
     fi
 
     # Check if already bound
-    if [ -f "$BIND_FILE" ] && grep -qx "$iface" "$BIND_FILE" 2>/dev/null; then
-        echo -e "${YELLOW}Interface '$iface' is already bound.${NC}"
+    if [ -f "$BIND_FILE" ] && grep -qx "$target" "$BIND_FILE" 2>/dev/null; then
+        echo -e "${YELLOW}'$target' is already bound.${NC}"
         return 0
     fi
 
-    # Add to bind file
-    mkdir -p "$MODULE_PATH"
-    echo "$iface" >> "$BIND_FILE"
+    mkdir -p "$PERSIST_PATH" 2>/dev/null
+    echo "$target" >> "$BIND_FILE"
 
-    # Rebuild iptables
     apply_iptables_rules "$port" "$BIND_FILE"
 
-    # Fetch IP separately (avoid toybox sh local+subshell scoping bug)
-    _bind_ip_addr=$(ip -f inet addr show "$iface" 2>/dev/null | grep -oE 'inet [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1 | awk '{print $2}')
-    echo -e "${GREEN} => ADB bound to interface '$iface'${NC}"
-    [ -n "$_bind_ip_addr" ] && echo -e "${GREEN}    IP: $_bind_ip_addr | Connect: adb connect $_bind_ip_addr:$port${NC}"
-    echo -e "${YELLOW}    ADB is now restricted to this interface + localhost only.${NC}"
+    if echo "$target" | grep -q "/"; then
+        local desc=""
+        [ "$target" = "100.64.0.0/10" ] && desc=" (Tailscale)"
+        [ "$target" = "100.96.0.0/12" ] && desc=" (Private Mesh Subnet)"
+        echo -e "${GREEN} => ADB bound to subnet '$target'$desc${NC}"
+    elif echo "$target" | grep -q '\+$'; then
+        echo -e "${GREEN} => ADB bound to wildcard interfaces matching '$target' (matches tun0, tun1, etc. dynamically)${NC}"
+    else
+        _bind_ip_addr=$(ip -f inet addr show "$target" 2>/dev/null | grep -oE 'inet [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1 | awk '{print $2}')
+        echo -e "${GREEN} => ADB bound to interface '$target'${NC}"
+        [ -n "$_bind_ip_addr" ] && echo -e "${GREEN}    IP: $_bind_ip_addr | Connect: adb connect $_bind_ip_addr:$port${NC}"
+    fi
+    echo -e "${YELLOW}    ADB is now restricted to bound targets + localhost only.${NC}"
 
     return 0
 }
 
 unbind_interface() {
-    local iface="$1"
+    local input="$1"
 
-    if [ -z "$iface" ]; then
-        echo -e "${PINK}Error: No interface specified.${NC}"
-        echo -e "${YELLOW}Usage: wadbd unbind <interface>${NC}"
+    if [ -z "$input" ]; then
+        echo -e "${PINK}Error: No target specified.${NC}"
+        echo -e "${YELLOW}Usage: wadbd unbind <interface|subnet|preset>${NC}"
         return 1
     fi
 
-    if [ ! -f "$BIND_FILE" ] || ! grep -qx "$iface" "$BIND_FILE" 2>/dev/null; then
-        echo -e "${YELLOW}Interface '$iface' is not bound.${NC}"
+    local target=$(resolve_target "$input")
+
+    if [ ! -f "$BIND_FILE" ] || ! grep -qx "$target" "$BIND_FILE" 2>/dev/null; then
+        echo -e "${YELLOW}'$target' is not bound.${NC}"
         return 0
     fi
 
-    # Remove from file
     local tmp=$(mktemp)
-    grep -vx "$iface" "$BIND_FILE" > "$tmp" 2>/dev/null
+    grep -vx "$target" "$BIND_FILE" > "$tmp" 2>/dev/null
     mv "$tmp" "$BIND_FILE"
 
-    # If no more interfaces, remove the file entirely
     if [ ! -s "$BIND_FILE" ]; then
         rm -f "$BIND_FILE"
     fi
@@ -184,13 +221,13 @@ unbind_interface() {
     if [ -n "$port" ]; then
         if [ -f "$BIND_FILE" ]; then
             apply_iptables_rules "$port" "$BIND_FILE"
-            echo -e "${GREEN} => Interface '$iface' unbound.${NC}"
+            echo -e "${GREEN} => '$target' unbound.${NC}"
         else
             flush_adb_rules "$port"
-            echo -e "${GREEN} => Interface '$iface' unbound. ADB now open on all interfaces.${NC}"
+            echo -e "${GREEN} => '$target' unbound. ADB now open on all interfaces.${NC}"
         fi
     else
-        echo -e "${GREEN} => Interface '$iface' unbound.${NC}"
+        echo -e "${GREEN} => '$target' unbound.${NC}"
     fi
 
     return 0
@@ -227,15 +264,24 @@ bind_status() {
         return 0
     fi
 
-    echo -e "${GREEN}  Bound interfaces:${NC}"
-    while IFS= read -r iface; do
-        iface=$(echo "$iface" | tr -d '[:space:]')
-        [ -z "$iface" ] && continue
-        local state=$(ip link show "$iface" 2>/dev/null | grep -oE 'state [A-Z]+' | awk '{print $2}')
-        local ip_addr=$(ip -f inet addr show "$iface" 2>/dev/null | grep -oE 'inet [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1 | awk '{print $2}')
-        local state_color="$GREEN"
-        [ "$state" != "UP" ] && state_color="$RED"
-        echo -e "    $iface  ${state_color}($state)${NC}  $ip_addr"
+    echo -e "${GREEN}  Bound interfaces / subnets:${NC}"
+    while IFS= read -r entry; do
+        entry=$(echo "$entry" | tr -d '[:space:]')
+        [ -z "$entry" ] && continue
+        if echo "$entry" | grep -q "/"; then
+            local note=""
+            [ "$entry" = "100.64.0.0/10" ] && note=" (Tailscale)"
+            [ "$entry" = "100.96.0.0/12" ] && note=" (Private Mesh Subnet)"
+            echo -e "    $entry  ${GREEN}(SUBNET)${NC}$note"
+        elif echo "$entry" | grep -q '\+$'; then
+            echo -e "    $entry  ${GREEN}(WILDCARD - all matching interfaces)${NC}"
+        else
+            local state=$(ip link show "$entry" 2>/dev/null | grep -oE 'state [A-Z]+' | awk '{print $2}')
+            local ip_addr=$(ip -f inet addr show "$entry" 2>/dev/null | grep -oE 'inet [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1 | awk '{print $2}')
+            local state_color="$GREEN"
+            [ "$state" != "UP" ] && state_color="$RED"
+            echo -e "    $entry  ${state_color}($state)${NC}  $ip_addr"
+        fi
     done < "$BIND_FILE"
 
     echo ""
@@ -248,22 +294,31 @@ bind_status() {
 }
 
 list_interfaces() {
-    echo -e "${YELLOW}Available network interfaces:${NC}"
-    # Real interfaces only — skip kernel virtual/tunnel cruft
-    ip link show | grep -E '^[0-9]+:' | awk -F': ' '{print $2}' | grep -vE '^(lo|dummy|ifb|gre|gretap|erspan|tunl|sit|ip6|ip_vti|ccmni|miw|p2p)' | while read -r iface; do
+    echo -e "${YELLOW}Available network interfaces & presets:${NC}"
+    echo -e "  ${GREEN}[PRESET]${NC} tun+       (Wildcard - all VPN/WireGuard tunnels)"
+    echo -e "  ${GREEN}[PRESET]${NC} tailscale  (100.64.0.0/10 - Tailscale mesh)"
+    echo ""
+    echo -e "${YELLOW}Active system interfaces:${NC}"
+    ip link show | grep -E '^[0-9]+:' | awk -F': ' '{print $2}' | grep -vE '^(lo|dummy|ifb|gre|gretap|erspan|tunl|sit|ip6|ip6_vti|ip_vti|ccmni|miw|p2p)' | while read -r iface; do
         local state=$(ip link show "$iface" 2>/dev/null | grep -oE 'state [A-Z]+' | awk '{print $2}')
         local ip_addr=$(ip -f inet addr show "$iface" 2>/dev/null | grep -oE 'inet [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1 | awk '{print $2}')
         local mac=$(ip link show "$iface" 2>/dev/null | grep -oE 'link/ether ([0-9a-f]{2}:){5}[0-9a-f]{2}' | awk '{print $2}' | head -1)
+        local tag=""
         if [ -f "$BIND_FILE" ] && grep -qx "$iface" "$BIND_FILE" 2>/dev/null; then
-            echo -e "  ${GREEN}[BOUND]${NC} $iface ($state) $ip_addr $mac"
-        else
-            echo -e "  $iface ($state) $ip_addr $mac"
+            tag="${GREEN}[BOUND]${NC} "
         fi
+        local extra=""
+        if [ -n "$ip_addr" ]; then
+            if echo "$ip_addr" | grep -qE '^100\.(6[4-9]|[7-9][0-9]|1[0-1][0-9]|12[0-7])\.'; then
+                extra=" ${YELLOW}[Tailscale / CGNAT]${NC}"
+            elif echo "$iface" | grep -qE '^tun'; then
+                extra=" ${YELLOW}[VPN Tunnel]${NC}"
+            fi
+        fi
+        echo -e "  ${tag}$iface ($state) $ip_addr $mac$extra"
     done
     return 0
 }
-
-# ─── Original WADBD Commands (with binding integration) ────────────
 
 enable_wireless_adb() {
     local port=${1:-5555} 
@@ -277,7 +332,7 @@ enable_wireless_adb() {
     stop adbd
     start adbd
 
-    # Apply iptables binding if any interfaces are configured
+    # Apply iptables binding if any targets are configured
     sleep 1
     if [ -f "$BIND_FILE" ] && [ -s "$BIND_FILE" ]; then
         apply_iptables_rules "$port" "$BIND_FILE"
@@ -296,14 +351,20 @@ show_default_gateway() {
         return
     fi
 
-    # Show bound interfaces first if any
+    # Show bound targets first if any
     if [ -f "$BIND_FILE" ] && [ -s "$BIND_FILE" ]; then
-        echo -e "${YELLOW} => (Restricted mode — only bound interfaces accessible)${NC}"
-        while IFS= read -r iface; do
-            iface=$(echo "$iface" | tr -d '[:space:]')
-            [ -z "$iface" ] && continue
-            local ip_addr=$(ip -f inet addr show "$iface" 2>/dev/null | grep -oE 'inet [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1 | awk '{print $2}')
-            [ -n "$ip_addr" ] && echo -e "${GREEN}   • adb connect $ip_addr:$port${NC}"
+        echo -e "${YELLOW} => (Restricted mode — only bound targets accessible)${NC}"
+        while IFS= read -r target; do
+            target=$(echo "$target" | tr -d '[:space:]')
+            [ -z "$target" ] && continue
+            if echo "$target" | grep -q "/"; then
+                echo -e "${GREEN}   • Subnet allowed: $target${NC}"
+            elif echo "$target" | grep -q '\+$'; then
+                echo -e "${GREEN}   • Wildcard allowed: $target (all matching tunnels)${NC}"
+            else
+                local ip_addr=$(ip -f inet addr show "$target" 2>/dev/null | grep -oE 'inet [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1 | awk '{print $2}')
+                [ -n "$ip_addr" ] && echo -e "${GREEN}   • adb connect $ip_addr:$port${NC}"
+            fi
         done < "$BIND_FILE"
         return
     fi
@@ -345,10 +406,10 @@ check_wireless_adb_status() {
     # Check binding state
     if [ -f "$BIND_FILE" ] && [ -s "$BIND_FILE" ]; then
         local count=$(wc -l < "$BIND_FILE" | tr -d ' ')
-        echo -e "${GREEN} => Interface binding: $count interface(s) restricted${NC}"
+        echo -e "${GREEN} => Interface/subnet binding: $count target(s) restricted${NC}"
     fi
     
-    # Check if wireless ADB is enabled on boot
+    # Check if wireless ADB on boot is enabled
     if [ -f "$BOOT_FLAG" ]; then
         local boot_port=$(cat "$BOOT_FLAG")
         if [ -n "$boot_port" ]; then
@@ -370,19 +431,16 @@ enable_on_boot() {
     fi
 
     # Write boot flag — service.sh reads this
-    mkdir -p /data/adb/wadbd 2>/dev/null
+    mkdir -p "$PERSIST_PATH" 2>/dev/null
     echo "$port" > "$BOOT_FLAG"
     chmod 644 "$BOOT_FLAG"
 
     echo -e "${GREEN} => Wireless ADB will now be enabled on boot with port $port.${NC}"
-    echo -e "${GREEN}    Interface bindings (if any) will also be restored.${NC}"
+    echo -e "${GREEN}    Interface & subnet bindings (if any) will also be restored.${NC}"
     su -lp 2000 -c "cmd notification post -S bigtext -t 'WADBD' 'Tag' 'Wireless ADB on boot will now be Enabled on port $port !!'" > /dev/null 2>&1
 }
 
 disable_on_boot() {
-    local module_path="/data/adb/modules/wadbd"
-    rm -f /data/adb/modules/wadbd/service.sh
-    # Also clear the boot flag file
     rm -f "$BOOT_FLAG"
     echo -e "${GREEN} => Wireless ADB will no longer be enabled on boot.${NC}"
 }
@@ -402,7 +460,6 @@ list_keys(){
     echo -e "${YELLOW}── Authorized ADB Keys ──${NC}"
     while IFS= read -r line; do
         [ -z "$line" ] && continue
-        # Extract user@host comment from the base64 key
         local comment=$(echo "$line" | base64 -d 2>/dev/null | strings | grep -E '[@]' | head -1)
         [ -z "$comment" ] && comment="(unknown)"
         local hash=$(echo "$line" | md5sum 2>/dev/null | awk '{print $1}' | head -c 8)
@@ -519,8 +576,6 @@ restore_adb_keys() {
     chown 1000:2000 /data/misc/adb/adb_keys
     echo -e "${GREEN}ADB keys restored successfully from $backup_path.${NC}"
 }
-
-# ─── Main ──────────────────────────────────────────────────────────
 
 check_root
 if [ "$#" -lt 1 ]; then
