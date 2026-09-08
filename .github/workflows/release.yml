@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get Version
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Package Magisk/KSU Module ZIP
+        run: |
+          zip -r9 "wadbd-v${{ env.VERSION }}.zip" \
+            META-INF \
+            action.sh \
+            changelog.md \
+            module.prop \
+            service.sh \
+            system \
+            webroot \
+            LICENSE
+          cp "wadbd-v${{ env.VERSION }}.zip" wadbd.zip
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            wadbd-v${{ env.VERSION }}.zip
+            wadbd.zip
+          generate_release_notes: true

@@ -1,0 +1,35 @@
+name: Build & Package
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Package Magisk/KSU Module ZIP
+        run: |
+          zip -r9 wadbd.zip \
+            META-INF \
+            action.sh \
+            changelog.md \
+            module.prop \
+            service.sh \
+            system \
+            webroot \
+            LICENSE
+
+      - name: Upload Module ZIP Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wadbd-module
+          path: wadbd.zip
+          retention-days: 30
