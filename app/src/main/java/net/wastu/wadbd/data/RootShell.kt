@@ -33,7 +33,7 @@ object RootShell {
         Shell.cmd(cmd).exec().out
     }
     suspend fun requestRoot(): Boolean = withContext(Dispatchers.IO) {
-        Shell.getShell().isRoot
+        Shell.rootAccess()
     }
 
 
