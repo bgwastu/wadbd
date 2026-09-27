@@ -56,12 +56,12 @@ class SessionReceiver : BroadcastReceiver() {
                     val text = if (count == 1) "Connected: $client" else "$count active clients: $client"
 
                     val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-                        .setSmallIcon(R.drawable.ic_adb)
+                        .setSmallIcon(R.drawable.ic_launcher_monochrome)
                         .setContentTitle(title)
                         .setContentText(text)
                         .setOngoing(true)
                         .setContentIntent(contentIntent)
-                        .addAction(R.drawable.ic_adb, "Disconnect", disconnectIntent)
+                        .addAction(R.drawable.ic_launcher_monochrome, "Disconnect", disconnectIntent)
                         .setPriority(NotificationCompat.PRIORITY_HIGH)
                         .build()
 

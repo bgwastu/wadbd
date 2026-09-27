@@ -36,9 +36,11 @@ class AdbTileService : TileService() {
             if (state.isEnabled) {
                 tile.state = Tile.STATE_ACTIVE
                 tile.subtitle = "Port ${state.port}"
+                tile.icon = android.graphics.drawable.Icon.createWithResource(this@AdbTileService, net.wastu.wadbd.R.drawable.ic_launcher_monochrome)
             } else {
                 tile.state = Tile.STATE_INACTIVE
                 tile.subtitle = "Disabled"
+                tile.icon = android.graphics.drawable.Icon.createWithResource(this@AdbTileService, net.wastu.wadbd.R.drawable.ic_launcher_monochrome)
             }
             tile.updateTile()
         }
