@@ -2,7 +2,6 @@ package net.wastu.wadbd.data
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.net.InetAddress
 
 data class WadbdState(
     val isRootAvailable: Boolean = false,
@@ -42,11 +41,9 @@ class WadbdRepository {
         val authorizedKeys = loadAuthorizedKeys()
         val pendingKeys = loadPendingKeys()
 
-        // Match sessions with known key identities via DNS / MagicDNS / adb_keys
-        val enrichedSessions = sessions.map { session ->
-            val peerName = resolvePeerIdentity(session, authorizedKeys)
-            session.copy(peerName = peerName)
-        }
+        // TCP sockets do not expose the authenticated ADB RSA fingerprint.
+        // Never infer key identity from DNS; show the verified peer IP instead.
+        val enrichedSessions = sessions
 
         WadbdState(
             isRootAvailable = isRootAvailable,
@@ -222,48 +219,4 @@ class WadbdRepository {
         true
     }
 
-    private fun resolvePeerIdentity(session: ActiveSession, authorizedKeys: List<AdbKey>): String {
-        val cleanIp = session.cleanIp
-
-        // 1. Check if any authorized key host resolves to this cleanIp (via Tailscale MagicDNS / LAN)
-        for (key in authorizedKeys) {
-            val host = key.host
-            if (host.isNotEmpty() && host != "Unknown") {
-                val candidateNames = listOf(host, "$host.mesh", "$host.local", "$host.lan")
-                for (cand in candidateNames) {
-                    try {
-                        val addrs = InetAddress.getAllByName(cand)
-                        for (addr in addrs) {
-                            val candIp = addr.hostAddress?.replace("[", "")?.replace("]", "") ?: ""
-                            if (candIp.isNotEmpty() && (candIp == cleanIp || cleanIp.endsWith(candIp) || candIp.endsWith(cleanIp))) {
-                                return "${key.user}@${key.host}"
-                            }
-                        }
-                    } catch (_: Throwable) {}
-                }
-            }
-        }
-
-        // 2. Try reverse DNS lookup on the connected IP
-        try {
-            val inet = InetAddress.getByName(cleanIp)
-            val revName = inet.hostName ?: ""
-            if (revName.isNotEmpty() && revName != cleanIp) {
-                val baseHost = revName.split(".")[0]
-                val matchingKey = authorizedKeys.firstOrNull { it.host.equals(baseHost, ignoreCase = true) }
-                if (matchingKey != null) {
-                    return "${matchingKey.user}@${matchingKey.host}"
-                }
-                return revName
-            }
-        } catch (_: Throwable) {}
-
-        // 3. If there is only one authorized key, and an active session is established, map to it
-        if (authorizedKeys.size == 1) {
-            val single = authorizedKeys.first()
-            return "${single.user}@${single.host}"
-        }
-
-        return ""
-    }
 }
