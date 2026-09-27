@@ -1,6 +1,13 @@
 # Wireless ADBD Controller (WADBD)
 
-A Magisk, KernelSU, and APatch module for managing Android's wireless ADB daemon (`adbd`) with per-interface and subnet binding, boot persistence, authorized key management, and a modern WebUI (MMRL / KSUWebUI).
+A Magisk, KernelSU, and APatch module for managing Android's wireless ADB daemon (`adbd`) with per-interface and subnet binding, boot persistence, authorized key management, active connection alerts, and a modern native Material 3 companion app.
+
+## Screenshots
+<p align="center">
+  <img src="docs/images/screenshot_dashboard.png" width="31%" alt="Dashboard" />
+  <img src="docs/images/screenshot_keys.png" width="31%" alt="RSA Keys" />
+  <img src="docs/images/screenshot_firewall.png" width="31%" alt="Firewall" />
+</p>
 
 ## Why This Fork?
 
@@ -19,7 +26,7 @@ This fork adds **iptables-based network isolation**:
 - **Interface & Subnet Whitelisting:** Drops all incoming ADB traffic on unapproved interfaces using kernel `iptables`. Localhost (`lo`) is always permitted.
 - **Boot Persistence:** Automatically starts wireless ADB on boot on your desired port and restores all firewall bindings.
 - **Key Management:** List all authorized devices (`adb_keys`), revoke individual keys, or import keys without waiting for the RSA trust prompt.
-- **WebUI Integration:** Accessible from MMRL or KernelSU WebUI standalone with real-time interface detection, toggle switches, and quick presets.
+- **Native Material 3 App:** Manage ports, active client sessions, firewall bindings, and RSA keys directly from a modern Material You Android app with Quick Settings Tile integration.
 - **Active Connection Alerts:** Displays a real-time Android system notification whenever an external ADB client connects, showing remote client IP and session count, and automatically clears the notification when the connection terminates.
 
 ## Installation
@@ -27,7 +34,7 @@ This fork adds **iptables-based network isolation**:
 1. Download the module zip from [Releases](https://github.com/bgwastu/wadbd/releases) or flash via MMRL.
 2. Flash in **Magisk**, **KernelSU**, or **APatch**.
 3. Reboot your device.
-4. Open the WebUI via **MMRL** or **KernelSU WebUI**, or manage via terminal with `wadbd`.
+4. Launch the **WADBD** app from your launcher or manage via terminal with `wadbd`.
 
 ## CLI Usage
 

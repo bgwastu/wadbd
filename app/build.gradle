@@ -11,8 +11,8 @@ android {
         applicationId "net.wastu.wadbd"
         minSdk 26
         targetSdk 34
-        versionCode 16
-        versionName "5.9"
+        versionCode 17
+        versionName "6.0"
     }
 
     signingConfigs {

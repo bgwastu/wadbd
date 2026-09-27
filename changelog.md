@@ -1,3 +1,12 @@
+# v6.0
+- Native Material 3 Android App embedded directly into the module zip (system/priv-app/Wadbd/)
+- Full Material You dynamic theming, LargeTopAppBar with collapsible scrolling, and edge-to-edge layout
+- RSA Key Manager: Manage authorized keys, manual import, and pending/unauthorized connection interceptor
+- Active sessions dashboard with client identity correlation, full-width display, and bottom Disconnect action
+- Real-time active connection notifications with interactive Disconnect button and auto-dismissal
+- Quick Settings Tile to toggle Wireless ADB directly from Android status bar
+- Cleaned module metadata (author: bgwastu) and removed standalone APK from GitHub releases
+
 # v5.9
 - Associate active connection sessions with authorized RSA key identities (e.g. user@laptop)
 - Display key identity as headline title with remote IP and port as subtitle description
