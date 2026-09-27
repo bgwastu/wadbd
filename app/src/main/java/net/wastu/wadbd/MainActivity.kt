@@ -10,7 +10,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -19,8 +18,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.core.content.ContextCompat
 import net.wastu.wadbd.ui.*
@@ -93,9 +90,8 @@ fun MainScreen(viewModel: MainViewModel) {
                 NavigationBarItem(
                     icon = {
                         Icon(
-                            painter = painterResource(R.drawable.ic_launcher_monochrome),
-                            contentDescription = "Dashboard",
-                            modifier = Modifier.size(28.dp)
+                            imageVector = if (selectedItem == 0) Icons.Filled.WifiTethering else Icons.Outlined.WifiTethering,
+                            contentDescription = "Dashboard"
                         )
                     },
                     label = { Text("Dashboard") },
@@ -114,8 +110,7 @@ fun MainScreen(viewModel: MainViewModel) {
                         ) {
                             Icon(
                                 if (selectedItem == 1) Icons.Filled.VpnKey else Icons.Outlined.VpnKey,
-                                contentDescription = "Keys",
-                                modifier = Modifier.size(28.dp)
+                                contentDescription = "Keys"
                             )
                         }
                     },
@@ -128,8 +123,7 @@ fun MainScreen(viewModel: MainViewModel) {
                     icon = {
                         Icon(
                             if (selectedItem == 2) Icons.Filled.Shield else Icons.Outlined.Shield,
-                            contentDescription = "Network",
-                            modifier = Modifier.size(28.dp)
+                            contentDescription = "Network"
                         )
                     },
                     label = { Text("Firewall") },
