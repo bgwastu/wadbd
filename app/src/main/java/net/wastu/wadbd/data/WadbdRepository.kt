@@ -5,6 +5,7 @@ import kotlinx.coroutines.withContext
 import java.net.InetAddress
 
 data class WadbdState(
+    val isRootAvailable: Boolean = false,
     val isEnabled: Boolean = false,
     val port: Int = 5555,
     val isBootEnabled: Boolean = false,
@@ -20,6 +21,7 @@ data class WadbdState(
 class WadbdRepository {
 
     suspend fun loadState(): WadbdState = withContext(Dispatchers.IO) {
+        val isRootAvailable = RootShell.isRootAvailable()
         val portStr = RootShell.exec("getprop service.adb.tcp.port").text.trim()
         val port = portStr.toIntOrNull() ?: -1
         val isEnabled = port > 0
@@ -47,6 +49,7 @@ class WadbdRepository {
         }
 
         WadbdState(
+            isRootAvailable = isRootAvailable,
             isEnabled = isEnabled,
             port = if (isEnabled) port else 5555,
             isBootEnabled = isBootEnabled,

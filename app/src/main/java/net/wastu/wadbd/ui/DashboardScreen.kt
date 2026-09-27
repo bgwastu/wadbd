@@ -53,7 +53,7 @@ fun DashboardScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(28.dp))
-                    .clickable { viewModel.toggleAdb(!state.isEnabled, state.port) },
+                    .clickable(enabled = state.isRootAvailable) { viewModel.toggleAdb(!state.isEnabled, state.port) },
                 color = heroBgColor,
                 shape = RoundedCornerShape(28.dp)
             ) {
@@ -95,7 +95,8 @@ fun DashboardScreen(
 
                     Switch(
                         checked = state.isEnabled,
-                        onCheckedChange = { viewModel.toggleAdb(it, state.port) }
+                        onCheckedChange = { viewModel.toggleAdb(it, state.port) },
+                        enabled = state.isRootAvailable
                     )
                 }
             }
@@ -224,7 +225,8 @@ fun DashboardScreen(
                     subtitle = "Show notification when client connects",
                     icon = Icons.Default.NotificationsActive,
                     checked = state.isNotificationEnabled,
-                    onCheckedChange = { viewModel.toggleNotifications(it) }
+                    onCheckedChange = { viewModel.toggleNotifications(it) },
+                    enabled = state.isRootAvailable
                 )
 
                 PreferenceDivider()
@@ -234,7 +236,8 @@ fun DashboardScreen(
                     subtitle = if (state.isBootEnabled) "Starts on port ${state.bootPort} automatically" else "Disabled",
                     icon = Icons.Default.PowerSettingsNew,
                     checked = state.isBootEnabled,
-                    onCheckedChange = { viewModel.toggleBoot(it, state.port) }
+                    onCheckedChange = { viewModel.toggleBoot(it, state.port) },
+                    enabled = state.isRootAvailable
                 )
             }
         }

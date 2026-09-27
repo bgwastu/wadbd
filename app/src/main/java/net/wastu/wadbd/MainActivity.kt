@@ -10,6 +10,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -23,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.core.content.ContextCompat
 import net.wastu.wadbd.ui.*
+import net.wastu.wadbd.ui.components.RootWarningBanner
 
 class MainActivity : ComponentActivity() {
 
@@ -144,14 +147,21 @@ fun MainScreen(viewModel: MainViewModel) {
                 .padding(padding),
             color = MaterialTheme.colorScheme.background
         ) {
-            when (selectedItem) {
-                0 -> DashboardScreen(
-                    state = state,
-                    viewModel = viewModel,
-                    onNavigateToNetwork = { selectedItem = 2 }
-                )
-                1 -> KeysScreen(state = state, viewModel = viewModel)
-                2 -> NetworkScreen(state = state, viewModel = viewModel)
+            Column(modifier = Modifier.fillMaxSize()) {
+                if (!state.isRootAvailable) {
+                    RootWarningBanner()
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    when (selectedItem) {
+                        0 -> DashboardScreen(
+                            state = state,
+                            viewModel = viewModel,
+                            onNavigateToNetwork = { selectedItem = 2 }
+                        )
+                        1 -> KeysScreen(state = state, viewModel = viewModel)
+                        2 -> NetworkScreen(state = state, viewModel = viewModel)
+                    }
+                }
             }
         }
     }

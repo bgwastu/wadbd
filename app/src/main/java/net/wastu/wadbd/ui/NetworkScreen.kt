@@ -108,7 +108,8 @@ fun NetworkScreen(
                     checked = state.boundTargets.contains("tun+"),
                     onCheckedChange = { checked ->
                         if (checked) viewModel.bindTarget("tun+") else viewModel.unbindTarget("tun+")
-                    }
+                    },
+                    enabled = state.isRootAvailable
                 )
 
                 PreferenceDivider()
@@ -120,7 +121,8 @@ fun NetworkScreen(
                     checked = state.boundTargets.contains("wlan0"),
                     onCheckedChange = { checked ->
                         if (checked) viewModel.bindTarget("wlan0") else viewModel.unbindTarget("wlan0")
-                    }
+                    },
+                    enabled = state.isRootAvailable
                 )
 
                 PreferenceDivider()
@@ -132,7 +134,8 @@ fun NetworkScreen(
                     checked = state.boundTargets.contains("eth0"),
                     onCheckedChange = { checked ->
                         if (checked) viewModel.bindTarget("eth0") else viewModel.unbindTarget("eth0")
-                    }
+                    },
+                    enabled = state.isRootAvailable
                 )
             }
         }
@@ -147,7 +150,7 @@ fun NetworkScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 PreferenceCategoryHeader("CUSTOM SUBNETS & CIDRS")
-                TextButton(onClick = { showAddDialog = true }) {
+                TextButton(onClick = { showAddDialog = true }, enabled = state.isRootAvailable) {
                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Add Rule")
@@ -227,6 +230,7 @@ fun NetworkScreen(
                 OutlinedButton(
                     onClick = { showResetDialog = true },
                     modifier = Modifier.fillMaxWidth(),
+                    enabled = state.isRootAvailable,
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
                     ),
