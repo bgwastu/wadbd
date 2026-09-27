@@ -1,3 +1,11 @@
+# v5.2
+- Add real-time active ADB connection alerts (Android system notification when clients connect)
+- Add background session monitor daemon (`wadbd-monitor`)
+- Automatic client IP display and multi-session tracking in notifications
+- Automatic notification dismissal upon client disconnection
+- Add `wadbd notify [on|off|status]` CLI command
+- Add active connection inspection to `wadbd status`
+
 # v5.1
 - Add subnet/CIDR binding support (e.g. 100.64.0.0/10, 192.168.1.0/24 via iptables -s)
 - Add wildcard interface binding (tun+ via iptables -i) for dynamic VPN allocation

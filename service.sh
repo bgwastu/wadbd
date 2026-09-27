@@ -1,5 +1,5 @@
 #!/system/bin/sh
-# WADBD v5.1 service.sh — boot persistence for wireless ADB + interface/subnet binding
+# WADBD v5.2 service.sh — boot persistence for wireless ADB + interface/subnet binding + session monitor
 # Runs as part of KernelSU/Magisk boot stage
 
 BOOT_FLAG="/data/adb/wadbd/enable_on_boot"
@@ -44,6 +44,11 @@ if [ -f "$BOOT_FLAG" ]; then
 
             # DROP everything else
             iptables -A INPUT -p tcp --dport "$port" -j DROP
+        fi
+
+        # Start connection monitor daemon
+        if [ -x "/data/adb/modules/wadbd/system/bin/wadbd-monitor" ]; then
+            /data/adb/modules/wadbd/system/bin/wadbd-monitor &
         fi
     fi
 fi

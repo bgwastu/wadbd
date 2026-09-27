@@ -20,6 +20,7 @@ This fork adds **iptables-based network isolation**:
 - **Boot Persistence:** Automatically starts wireless ADB on boot on your desired port and restores all firewall bindings.
 - **Key Management:** List all authorized devices (`adb_keys`), revoke individual keys, or import keys without waiting for the RSA trust prompt.
 - **WebUI Integration:** Accessible from MMRL or KernelSU WebUI standalone with real-time interface detection, toggle switches, and quick presets.
+- **Active Connection Alerts:** Displays a real-time Android system notification whenever an external ADB client connects, showing remote client IP and session count, and automatically clears the notification when the connection terminates.
 
 ## Installation
 
@@ -78,6 +79,18 @@ wadbd enable-on-boot 5555
 
 # Disable wireless ADB on boot
 wadbd disable-on-boot
+```
+
+### Active Connection Alerts
+```bash
+# Enable notifications when clients connect (default)
+wadbd notify on
+
+# Disable connection notifications
+wadbd notify off
+
+# Check monitor status and active sessions
+wadbd notify status
 ```
 
 ### Authorized Key Management

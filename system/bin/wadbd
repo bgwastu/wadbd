@@ -33,6 +33,7 @@ usage() {
     echo -e "  $cmd unbind-all             - Remove all interface/subnet restrictions."
     echo -e "  $cmd bind-status            - Show current binding state."
     echo -e "  $cmd list-interfaces        - List available network interfaces."
+    echo -e "  $cmd notify [on|off|status] - Control active connection notifications."
     echo -e "  $cmd --import-key <path>    - Import an adbkey.pub file to authorize ADB without prompt."
     echo -e "  $cmd --backup <path>        - Backup authorized adb_keys"
     echo -e "  $cmd --restore <path>       - Restore backed up adb_keys"
@@ -319,6 +320,69 @@ list_interfaces() {
     done
     return 0
 }
+start_monitor() {
+    local pid_file="$PERSIST_PATH/monitor.pid"
+    if [ -f "$pid_file" ]; then
+        local old_pid=$(cat "$pid_file" 2>/dev/null | tr -d '[:space:]')
+        if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then
+            return 0
+        fi
+    fi
+    if [ -x "$MODULE_PATH/system/bin/wadbd-monitor" ]; then
+        "$MODULE_PATH/system/bin/wadbd-monitor" &
+    elif [ -x "/system/bin/wadbd-monitor" ]; then
+        /system/bin/wadbd-monitor &
+    fi
+}
+
+stop_monitor() {
+    local pid_file="$PERSIST_PATH/monitor.pid"
+    if [ -f "$pid_file" ]; then
+        local old_pid=$(cat "$pid_file" 2>/dev/null | tr -d '[:space:]')
+        if [ -n "$old_pid" ]; then
+            kill "$old_pid" 2>/dev/null
+        fi
+        rm -f "$pid_file"
+    fi
+    # Dismiss active notification
+    su 2000 -c "service call notification 8 s16 'com.android.shell' s16 'com.android.shell' s16 'wadbd_session' i32 2020 i32 0" >/dev/null 2>&1
+    su 2000 -c "cmd notification snooze --for 1 '0|com.android.shell|2020|wadbd_session|2000'" >/dev/null 2>&1
+}
+
+notify_command() {
+    local subcmd="$1"
+    local config_file="$PERSIST_PATH/notify_conn"
+
+    case "$subcmd" in
+        on|enable)
+            echo "1" > "$config_file"
+            start_monitor
+            echo -e "${GREEN} => Active connection notification enabled.${NC}"
+            ;;
+        off|disable)
+            echo "0" > "$config_file"
+            su 2000 -c "service call notification 8 s16 'com.android.shell' s16 'com.android.shell' s16 'wadbd_session' i32 2020 i32 0" >/dev/null 2>&1
+            echo -e "${GREEN} => Active connection notification disabled.${NC}"
+            ;;
+        status)
+            local state="Enabled"
+            if [ -f "$config_file" ] && [ "$(cat "$config_file" 2>/dev/null | tr -d '[:space:]')" = "0" ]; then
+                state="Disabled"
+            fi
+            echo -e "${YELLOW}Connection notification:${NC} $state"
+            local pid_file="$PERSIST_PATH/monitor.pid"
+            if [ -f "$pid_file" ] && kill -0 "$(cat "$pid_file" 2>/dev/null | tr -d '[:space:]')" 2>/dev/null; then
+                echo -e "${GREEN}Monitor daemon:${NC} Running (PID $(cat "$pid_file" 2>/dev/null))"
+            else
+                echo -e "${RED}Monitor daemon:${NC} Stopped"
+            fi
+            ;;
+        *)
+            echo -e "${PINK}Usage: wadbd notify [on|off|status]${NC}"
+            ;;
+    esac
+}
+
 
 enable_wireless_adb() {
     local port=${1:-5555} 
@@ -340,6 +404,7 @@ enable_wireless_adb() {
 
     echo -e "${GREEN} => Wireless ADB enabled on port $port.${NC}"
     show_default_gateway
+    start_monitor
     su -lp 2000 -c "cmd notification post -S bigtext -t 'WADBD' 'Tag' 'Wireless ADBD Enabled on port $port !!'" > /dev/null 2>&1
 }
 
@@ -390,6 +455,7 @@ disable_wireless_adb() {
     setprop service.adb.tcp.port -1
     stop adbd
     start adbd
+    stop_monitor
     echo -e "${GREEN} => Wireless ADB disabled.${NC}"
 }
 
@@ -407,6 +473,31 @@ check_wireless_adb_status() {
     if [ -f "$BIND_FILE" ] && [ -s "$BIND_FILE" ]; then
         local count=$(wc -l < "$BIND_FILE" | tr -d ' ')
         echo -e "${GREEN} => Interface/subnet binding: $count target(s) restricted${NC}"
+    fi
+
+    # Check active connections
+    if [ "$port" != "-1" ] && [ -n "$port" ]; then
+        local conns=$(ss -Htn state established "( sport = :$port )" 2>/dev/null)
+        local external_conns=$(echo "$conns" | awk '{print $4}' | grep -vE '^(127\.0\.0\.1|\[::1\]):' | grep -v '^$')
+        if [ -n "$external_conns" ]; then
+            local conn_count=$(echo "$external_conns" | wc -l | tr -d '[:space:]')
+            local client_ips=$(echo "$external_conns" | sed -E 's/:[0-9]+$//' | sed 's/^\[//;s/\]$//' | sort -u | paste -sd, - | sed 's/,/, /g')
+            echo -e "${GREEN} => Active connection(s) ($conn_count): $client_ips${NC}"
+        else
+            echo -e "${YELLOW} => Active connections: None (idle)${NC}"
+        fi
+    fi
+
+    # Check monitor daemon status
+    local monitor_pid="$PERSIST_PATH/monitor.pid"
+    if [ -f "$monitor_pid" ] && kill -0 "$(cat "$monitor_pid" 2>/dev/null | tr -d '[:space:]')" 2>/dev/null; then
+        local notif_state="enabled"
+        if [ -f "$PERSIST_PATH/notify_conn" ] && [ "$(cat "$PERSIST_PATH/notify_conn" 2>/dev/null | tr -d '[:space:]')" = "0" ]; then
+            notif_state="muted"
+        fi
+        echo -e "${GREEN} => Connection monitor: Running (notifications: $notif_state)${NC}"
+    else
+        echo -e "${YELLOW} => Connection monitor: Stopped${NC}"
     fi
     
     # Check if wireless ADB on boot is enabled
@@ -619,6 +710,9 @@ case "$1" in
         ;;
     list-interfaces)
         list_interfaces
+        ;;
+    notify)
+        notify_command "$2"
         ;;
     --clear-keys)
         remove_keys

@@ -1,0 +1,88 @@
+#!/system/bin/sh
+
+# WADBD Connection Monitor Daemon
+# Detects active wireless ADB TCP sessions and manages Android system notifications
+
+PERSIST_PATH="/data/adb/wadbd"
+PID_FILE="$PERSIST_PATH/monitor.pid"
+CONFIG_FILE="$PERSIST_PATH/notify_conn"
+TAG="wadbd_session"
+NOTIF_ID=2020
+
+# Write PID
+echo $$ > "$PID_FILE"
+
+cleanup() {
+    # Dismiss notification on exit if active
+    su 2000 -c "service call notification 8 s16 'com.android.shell' s16 'com.android.shell' s16 '$TAG' i32 $NOTIF_ID i32 0" >/dev/null 2>&1
+    su 2000 -c "cmd notification snooze --for 1 '0|com.android.shell|$NOTIF_ID|$TAG|2000'" >/dev/null 2>&1
+    rm -f "$PID_FILE"
+    exit 0
+}
+
+trap cleanup INT TERM HUP EXIT
+
+prev_count=0
+prev_clients=""
+
+while true; do
+    # Check if notification is disabled by user config
+    if [ -f "$CONFIG_FILE" ] && [ "$(cat "$CONFIG_FILE" 2>/dev/null | tr -d '[:space:]')" = "0" ]; then
+        if [ "$prev_count" -gt 0 ]; then
+            su 2000 -c "service call notification 8 s16 'com.android.shell' s16 'com.android.shell' s16 '$TAG' i32 $NOTIF_ID i32 0" >/dev/null 2>&1
+            prev_count=0
+            prev_clients=""
+        fi
+        sleep 5
+        continue
+    fi
+
+    # Read current wireless ADB port
+    port=$(getprop service.adb.tcp.port 2>/dev/null | tr -d '[:space:]')
+
+    # If ADB over TCP is disabled or not set, clear notif and sleep
+    if [ -z "$port" ] || [ "$port" = "-1" ] || [ "$port" = "0" ]; then
+        if [ "$prev_count" -gt 0 ]; then
+            su 2000 -c "service call notification 8 s16 'com.android.shell' s16 'com.android.shell' s16 '$TAG' i32 $NOTIF_ID i32 0" >/dev/null 2>&1
+            prev_count=0
+            prev_clients=""
+        fi
+        sleep 3
+        continue
+    fi
+
+    # Query established TCP connections on port
+    conns=$(ss -Htn state established "( sport = :$port )" 2>/dev/null)
+    external_conns=$(echo "$conns" | awk '{print $4}' | grep -vE '^(127\.0\.0\.1|\[::1\]):' | grep -v '^$')
+
+    if [ -n "$external_conns" ]; then
+        count=$(echo "$external_conns" | wc -l | tr -d '[:space:]')
+        client_ips=$(echo "$external_conns" | sed -E 's/:[0-9]+$//' | sed 's/^\[//;s/\]$//' | sort -u | paste -sd, - | sed 's/,/, /g')
+
+        if [ "$count" -ne "$prev_count" ] || [ "$client_ips" != "$prev_clients" ]; then
+            title="Wireless ADB Active"
+            if [ "$count" -eq 1 ]; then
+                text="Connected client: $client_ips"
+            else
+                text="$count active sessions: $client_ips"
+            fi
+
+            # Post notification as user 2000 (com.android.shell)
+            su 2000 -c "cmd notification post -S bigtext -t '$title' -i @android:drawable/stat_sys_warning '$TAG' '$text'" >/dev/null 2>&1
+
+            prev_count=$count
+            prev_clients="$client_ips"
+        fi
+        sleep 2
+    else
+        # No clients connected
+        if [ "$prev_count" -gt 0 ]; then
+            # Dismiss notification immediately
+            su 2000 -c "service call notification 8 s16 'com.android.shell' s16 'com.android.shell' s16 '$TAG' i32 $NOTIF_ID i32 0" >/dev/null 2>&1
+            su 2000 -c "cmd notification snooze --for 1 '0|com.android.shell|$NOTIF_ID|$TAG|2000'" >/dev/null 2>&1
+            prev_count=0
+            prev_clients=""
+        fi
+        sleep 3
+    fi
+done
