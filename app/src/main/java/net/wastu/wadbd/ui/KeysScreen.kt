@@ -33,15 +33,6 @@ fun KeysScreen(
     var showRevokeAllDialog by remember { mutableStateOf(false) }
 
     Scaffold(
-        floatingActionButton = {
-            if (selectedTab == 0) {
-                ExtendedFloatingActionButton(
-                    onClick = { showImportDialog = true },
-                    icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                    text = { Text("Import Key") }
-                )
-            }
-        }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -56,25 +47,39 @@ fun KeysScreen(
                 SegmentedButton(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                    modifier = Modifier.weight(1f),
+                    icon = {}
                 ) {
-                    Icon(Icons.Default.Key, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Authorized (${state.authorizedKeys.size})")
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(Icons.Default.Key, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Authorized (${state.authorizedKeys.size})", maxLines = 1)
+                    }
                 }
 
                 SegmentedButton(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                    modifier = Modifier.weight(1f),
+                    icon = {}
                 ) {
-                    Icon(Icons.Default.SecurityUpdateWarning, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Pending")
-                    if (state.pendingKeys.isNotEmpty()) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(Icons.Default.SecurityUpdateWarning, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Badge {
-                            Text(state.pendingKeys.size.toString())
+                        Text("Pending", maxLines = 1)
+                        if (state.pendingKeys.isNotEmpty()) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Badge {
+                                Text(state.pendingKeys.size.toString())
+                            }
                         }
                     }
                 }
@@ -84,7 +89,8 @@ fun KeysScreen(
                 0 -> AuthorizedKeysTab(
                     keys = state.authorizedKeys,
                     onRevoke = { viewModel.revokeKey(it) },
-                    onRevokeAll = { showRevokeAllDialog = true }
+                    onRevokeAll = { showRevokeAllDialog = true },
+                    onImport = { showImportDialog = true }
                 )
                 1 -> PendingKeysTab(
                     keys = state.pendingKeys,
@@ -168,7 +174,8 @@ fun KeysScreen(
 fun AuthorizedKeysTab(
     keys: List<AdbKey>,
     onRevoke: (AdbKey) -> Unit,
-    onRevokeAll: () -> Unit
+    onRevokeAll: () -> Unit,
+    onImport: () -> Unit
 ) {
     if (keys.isEmpty()) {
         Box(
@@ -200,6 +207,12 @@ fun AuthorizedKeysTab(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(onClick = onImport) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Import Public Key")
+                }
             }
         }
     } else {
@@ -210,7 +223,9 @@ fun AuthorizedKeysTab(
         ) {
             item {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -220,10 +235,22 @@ fun AuthorizedKeysTab(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    TextButton(onClick = onRevokeAll) {
-                        Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Revoke All", color = MaterialTheme.colorScheme.error)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        FilledTonalButton(
+                            onClick = onImport,
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Import", fontSize = 13.sp)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        TextButton(
+                            onClick = onRevokeAll,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                        ) {
+                            Text("Revoke All", color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                        }
                     }
                 }
             }

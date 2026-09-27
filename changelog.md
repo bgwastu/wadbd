@@ -1,3 +1,8 @@
+# v5.8
+- Fix SegmentedButton squishing with 50/50 flex weight and remove overlapping icons
+- Remove FAB covering content and embed Import Key into list header row
+- Center empty state texts across Authorized and Pending tabs
+
 # v5.7
 - Replace full-width tab bar with Material 3 SingleChoiceSegmentedButtonRow
 - Redesign active session card: spacious layout, full-width IP display, port pill badge, and full-width bottom Disconnect button
