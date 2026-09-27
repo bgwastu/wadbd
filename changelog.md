@@ -1,3 +1,9 @@
+# v5.9
+- Associate active connection sessions with authorized RSA key identities (e.g. user@laptop)
+- Display key identity as headline title with remote IP and port as subtitle description
+- Embed key identity in real-time notification alerts
+- Package companion APK strictly inside Magisk/KSU module ZIP (no standalone release APK)
+
 # v5.8
 - Fix SegmentedButton squishing with 50/50 flex weight and remove overlapping icons
 - Remove FAB covering content and embed Import Key into list header row

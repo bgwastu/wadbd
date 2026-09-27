@@ -32,7 +32,6 @@ jobs:
         run: |
           mkdir -p system/priv-app/Wadbd
           cp app/build/outputs/apk/release/app-release.apk system/priv-app/Wadbd/Wadbd.apk
-          cp app/build/outputs/apk/release/app-release.apk wadbd.apk
 
       - name: Package Magisk/KSU Module ZIP
         run: |
@@ -51,11 +50,4 @@ jobs:
         with:
           name: wadbd-module
           path: wadbd.zip
-          retention-days: 30
-
-      - name: Upload Standalone APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: wadbd-apk
-          path: wadbd.apk
           retention-days: 30

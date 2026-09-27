@@ -62,16 +62,33 @@ while true; do
 
         if [ "$count" -ne "$prev_count" ] || [ "$client_ips" != "$prev_clients" ]; then
             title="Wireless ADB Active"
+            # Match peer name from adb_keys / mesh if available
+            peer_name=""
+            if [ -f "/data/misc/adb/adb_keys" ]; then
+                for k in $(awk '{print $NF}' /data/misc/adb/adb_keys 2>/dev/null); do
+                    h=$(echo "$k" | cut -d'@' -f2)
+                    if [ -n "$h" ] && [ "$h" != "Unknown" ]; then
+                        resolved_ip=$(ping -c 1 -W 1 "$h.mesh" 2>/dev/null | grep -oE '\(([0-9a-fA-F:\.]+)\)' | tr -d '()')
+                        if [ -n "$resolved_ip" ] && echo "$client_ips" | grep -q "$resolved_ip"; then
+                            peer_name="$k"
+                            break
+                        fi
+                    fi
+                done
+            fi
+            display_client="${peer_name:-$client_ips}"
+
             if [ "$count" -eq 1 ]; then
-                text="Connected client: $client_ips"
+                text="Connected: $display_client"
+                [ -n "$peer_name" ] && text="$display_client ($client_ips)"
             else
-                text="$count active sessions: $client_ips"
+                text="$count active sessions: $display_client"
             fi
 
             # Post notification as user 2000 (com.android.shell)
             su 2000 -c "cmd notification post -S bigtext -t '$title' -i @android:drawable/stat_sys_warning '$TAG' '$text'" >/dev/null 2>&1
             # Broadcast to native companion app if present
-            am broadcast -n net.wastu.wadbd/.service.SessionReceiver -a net.wastu.wadbd.ACTION_SESSION_UPDATE --es client "$client_ips" --ei count $count >/dev/null 2>&1
+            am broadcast -n net.wastu.wadbd/.service.SessionReceiver -a net.wastu.wadbd.ACTION_SESSION_UPDATE --es client "$display_client" --ei count $count >/dev/null 2>&1
 
             prev_count=$count
             prev_clients="$client_ips"

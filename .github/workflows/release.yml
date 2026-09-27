@@ -39,7 +39,6 @@ jobs:
         run: |
           mkdir -p system/priv-app/Wadbd
           cp app/build/outputs/apk/release/app-release.apk system/priv-app/Wadbd/Wadbd.apk
-          cp app/build/outputs/apk/release/app-release.apk wadbd.apk
 
       - name: Package Magisk/KSU Module ZIP
         run: |
@@ -60,5 +59,4 @@ jobs:
           files: |
             wadbd-v${{ env.VERSION }}.zip
             wadbd.zip
-            wadbd.apk
           generate_release_notes: true
