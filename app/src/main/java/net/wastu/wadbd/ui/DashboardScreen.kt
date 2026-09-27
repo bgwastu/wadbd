@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.wastu.wadbd.data.WadbdState
@@ -79,14 +80,14 @@ fun DashboardScreen(
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (state.isEnabled) "Wireless ADB On" else "Wireless ADB Off",
+                            text = if (state.isEnabled) "Enabled" else "Disabled",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = heroContentColor
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = if (state.isEnabled) "Port ${state.port} • Ready for connect" else "Tap switch to enable debugging",
+                            text = if (state.isEnabled) "Port ${state.port}" else "Tap switch to enable",
                             style = MaterialTheme.typography.bodyMedium,
                             color = heroContentColor.copy(alpha = 0.8f)
                         )
@@ -114,48 +115,75 @@ fun DashboardScreen(
             } else {
                 PreferenceGroup {
                     state.activeSessions.forEachIndexed { index, session ->
-                        Row(
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .padding(16.dp)
                         ) {
-                            // Pulsing / Active Green Indicator
-                            Box(
-                                modifier = Modifier
-                                    .size(10.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF4CAF50))
-                            )
-
-                            Spacer(modifier = Modifier.width(16.dp))
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = if (session.peerName.isNotEmpty()) session.peerName else session.cleanIp,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.SemiBold
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF4CAF50))
                                 )
-                                Spacer(modifier = Modifier.height(2.dp))
+
+                                Spacer(modifier = Modifier.width(12.dp))
+
+                                val displayName = if (session.peerName.isNotEmpty()) session.peerName else session.cleanIp
                                 Text(
-                                    text = "${session.cleanIp}:${session.remotePort}",
+                                    text = displayName,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontFamily = if (session.peerName.isEmpty()) FontFamily.Monospace else FontFamily.Default,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    modifier = Modifier.padding(start = 8.dp)
+                                ) {
+                                    Text(
+                                        text = ":${session.remotePort}",
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+
+                            if (session.peerName.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = session.cleanIp,
                                     fontFamily = FontFamily.Monospace,
                                     fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 22.dp)
                                 )
                             }
 
+                            Spacer(modifier = Modifier.height(14.dp))
+
                             FilledTonalButton(
                                 onClick = { viewModel.kickSession(session) },
+                                modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.filledTonalButtonColors(
                                     containerColor = MaterialTheme.colorScheme.errorContainer,
                                     contentColor = MaterialTheme.colorScheme.onErrorContainer
                                 ),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                shape = RoundedCornerShape(12.dp)
                             ) {
-                                Icon(Icons.Default.LinkOff, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Disconnect", fontSize = 12.sp)
+                                Icon(Icons.Default.LinkOff, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Disconnect", fontWeight = FontWeight.Medium)
                             }
                         }
 

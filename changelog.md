@@ -1,3 +1,9 @@
+# v5.7
+- Replace full-width tab bar with Material 3 SingleChoiceSegmentedButtonRow
+- Redesign active session card: spacious layout, full-width IP display, port pill badge, and full-width bottom Disconnect button
+- Streamline hero card labels to 'Enabled' and 'Disabled' with clean port subtitle
+- Center all empty-state messages horizontally across Keys screens
+
 # v5.5
 - Redesign Network screen: replace awkward chips with AOSP Settings-style preference rows
 - Consolidate VPN / Tailscale preset into dynamic tunnel wildcard (`tun+`)

@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.wastu.wadbd.data.AdbKey
@@ -47,32 +48,36 @@ fun KeysScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            PrimaryTabRow(
-                selectedTabIndex = selectedTab,
-                modifier = Modifier.fillMaxWidth()
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
             ) {
-                Tab(
+                SegmentedButton(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    text = { Text("Authorized (${state.authorizedKeys.size})") },
-                    icon = { Icon(Icons.Default.Key, contentDescription = null) }
-                )
-                Tab(
+                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                ) {
+                    Icon(Icons.Default.Key, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Authorized (${state.authorizedKeys.size})")
+                }
+
+                SegmentedButton(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Pending")
-                            if (state.pendingKeys.isNotEmpty()) {
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Badge {
-                                    Text(state.pendingKeys.size.toString())
-                                }
-                            }
+                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                ) {
+                    Icon(Icons.Default.SecurityUpdateWarning, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Pending")
+                    if (state.pendingKeys.isNotEmpty()) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Badge {
+                            Text(state.pendingKeys.size.toString())
                         }
-                    },
-                    icon = { Icon(Icons.Default.SecurityUpdateWarning, contentDescription = null) }
-                )
+                    }
+                }
             }
 
             when (selectedTab) {
@@ -181,15 +186,19 @@ fun AuthorizedKeysTab(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    "No authorized computers",
+                    text = "No authorized computers",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    "New connections will require confirmation, or import a key below.",
+                    text = "New connections will require confirmation, or import a key below.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }
@@ -318,15 +327,19 @@ fun PendingKeysTab(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    "No pending connection requests",
+                    text = "No pending connection requests",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    "Unauthorized attempts on port 5555 will appear here.",
+                    text = "Unauthorized attempts on port 5555 will appear here.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }
