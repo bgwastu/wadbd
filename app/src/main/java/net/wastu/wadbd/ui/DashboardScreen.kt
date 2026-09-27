@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -22,6 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.wastu.wadbd.data.WadbdState
+import net.wastu.wadbd.R
 import net.wastu.wadbd.ui.components.*
 
 @Composable
@@ -68,7 +70,7 @@ fun DashboardScreen(
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
-                                imageVector = if (state.isEnabled) Icons.Default.WifiTethering else Icons.Default.WifiTetheringOff,
+                                painter = painterResource(R.drawable.ic_launcher_monochrome),
                                 contentDescription = null,
                                 tint = if (state.isEnabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(28.dp)
