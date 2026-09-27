@@ -63,6 +63,8 @@ class WadbdRepository {
         )
     }
 
+    suspend fun requestRoot(): Boolean = RootShell.requestRoot()
+
     suspend fun toggleAdb(enable: Boolean, port: Int = 5555): Boolean = withContext(Dispatchers.IO) {
         if (enable) {
             RootShell.exec("/data/adb/modules/wadbd/system/bin/wadbd on $port || wadbd on $port").isSuccess
