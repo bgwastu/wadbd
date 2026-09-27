@@ -1,21 +1,15 @@
 #!/system/bin/sh
 
 # WADBD Connection Monitor Daemon
-# Detects active wireless ADB TCP sessions and manages Android system notifications
+# Detects active wireless ADB TCP sessions and dispatches events to WADBD companion app
 
 PERSIST_PATH="/data/adb/wadbd"
 PID_FILE="$PERSIST_PATH/monitor.pid"
 CONFIG_FILE="$PERSIST_PATH/notify_conn"
-TAG="wadbd_session"
-NOTIF_ID=2020
 
-# Write PID
 echo $$ > "$PID_FILE"
 
 cleanup() {
-    # Dismiss notification on exit if active
-    su 2000 -c "service call notification 8 s16 'com.android.shell' s16 'com.android.shell' s16 '$TAG' i32 $NOTIF_ID i32 0" >/dev/null 2>&1
-    su 2000 -c "cmd notification snooze --for 1 '0|com.android.shell|$NOTIF_ID|$TAG|2000'" >/dev/null 2>&1
     am broadcast -n net.wastu.wadbd/.service.SessionReceiver -a net.wastu.wadbd.ACTION_SESSION_UPDATE --ei count 0 >/dev/null 2>&1
     rm -f "$PID_FILE"
     exit 0
@@ -30,7 +24,7 @@ while true; do
     # Check if notification is disabled by user config
     if [ -f "$CONFIG_FILE" ] && [ "$(cat "$CONFIG_FILE" 2>/dev/null | tr -d '[:space:]')" = "0" ]; then
         if [ "$prev_count" -gt 0 ]; then
-            su 2000 -c "service call notification 8 s16 'com.android.shell' s16 'com.android.shell' s16 '$TAG' i32 $NOTIF_ID i32 0" >/dev/null 2>&1
+            am broadcast -n net.wastu.wadbd/.service.SessionReceiver -a net.wastu.wadbd.ACTION_SESSION_UPDATE --ei count 0 >/dev/null 2>&1
             prev_count=0
             prev_clients=""
         fi
@@ -44,7 +38,7 @@ while true; do
     # If ADB over TCP is disabled or not set, clear notif and sleep
     if [ -z "$port" ] || [ "$port" = "-1" ] || [ "$port" = "0" ]; then
         if [ "$prev_count" -gt 0 ]; then
-            su 2000 -c "service call notification 8 s16 'com.android.shell' s16 'com.android.shell' s16 '$TAG' i32 $NOTIF_ID i32 0" >/dev/null 2>&1
+            am broadcast -n net.wastu.wadbd/.service.SessionReceiver -a net.wastu.wadbd.ACTION_SESSION_UPDATE --ei count 0 >/dev/null 2>&1
             prev_count=0
             prev_clients=""
         fi
@@ -61,7 +55,6 @@ while true; do
         client_ips=$(echo "$external_conns" | sed -E 's/:[0-9]+$//' | sed 's/^\[//;s/\]$//' | sort -u | paste -sd, - | sed 's/,/, /g')
 
         if [ "$count" -ne "$prev_count" ] || [ "$client_ips" != "$prev_clients" ]; then
-            title="Wireless ADB Active"
             # Match peer name from adb_keys / mesh if available
             peer_name=""
             if [ -f "/data/misc/adb/adb_keys" ]; then
@@ -78,16 +71,7 @@ while true; do
             fi
             display_client="${peer_name:-$client_ips}"
 
-            if [ "$count" -eq 1 ]; then
-                text="Connected: $display_client"
-                [ -n "$peer_name" ] && text="$display_client ($client_ips)"
-            else
-                text="$count active sessions: $display_client"
-            fi
-
-            # Post notification as user 2000 (com.android.shell)
-            su 2000 -c "cmd notification post -S bigtext -t '$title' -i @android:drawable/stat_sys_warning '$TAG' '$text'" >/dev/null 2>&1
-            # Broadcast to native companion app if present
+            # Dispatch session event to native companion app
             am broadcast -n net.wastu.wadbd/.service.SessionReceiver -a net.wastu.wadbd.ACTION_SESSION_UPDATE --es client "$display_client" --ei count $count >/dev/null 2>&1
 
             prev_count=$count
@@ -97,10 +81,6 @@ while true; do
     else
         # No clients connected
         if [ "$prev_count" -gt 0 ]; then
-            # Dismiss notification immediately
-            su 2000 -c "service call notification 8 s16 'com.android.shell' s16 'com.android.shell' s16 '$TAG' i32 $NOTIF_ID i32 0" >/dev/null 2>&1
-            su 2000 -c "cmd notification snooze --for 1 '0|com.android.shell|$NOTIF_ID|$TAG|2000'" >/dev/null 2>&1
-            # Broadcast disconnect to native companion app
             am broadcast -n net.wastu.wadbd/.service.SessionReceiver -a net.wastu.wadbd.ACTION_SESSION_UPDATE --ei count 0 >/dev/null 2>&1
             prev_count=0
             prev_clients=""

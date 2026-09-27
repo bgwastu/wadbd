@@ -1,135 +1,56 @@
-# Wireless ADBD Controller (WADBD)
+# WADBD — Wireless ADB Controller
 
-A Magisk, KernelSU, and APatch module for managing Android's wireless ADB daemon (`adbd`) with per-interface and subnet binding, boot persistence, authorized key management, active connection alerts, and a modern native Material 3 companion app.
+Network isolation, active connection alerts, and native Material 3 controls for Android's wireless ADB daemon.
 
-## Screenshots
 <p align="center">
   <img src="docs/images/screenshot_dashboard.png" width="31%" alt="Dashboard" />
   <img src="docs/images/screenshot_keys.png" width="31%" alt="RSA Keys" />
   <img src="docs/images/screenshot_firewall.png" width="31%" alt="Firewall" />
 </p>
 
-## Why This Fork?
-
-Standard Android wireless ADB listens on all network interfaces (`0.0.0.0`), exposing the debugging daemon to public Wi-Fi, cellular, and any connected VPN tunnels.
-
-This fork adds **iptables-based network isolation**:
-- **Interface Whitelisting:** Restrict ADB access to trusted interfaces only (e.g. `wlan0`, `eth0`).
-- **Dynamic VPN / Tunnel Support (`tun+`):** Matches all dynamic tunnel interfaces (`tun0`, `tun1`, etc.) so ADB remains accessible even when Android assigns tunnel interface numbers out of order upon reboot.
-- **Subnet / CIDR Binding:** Restrict incoming ADB connections to specific trusted subnets (e.g. local LAN `192.168.1.0/24`, Tailscale mesh `100.64.0.0/10`, or private VPN mesh subnets) regardless of which interface they arrive on.
-- **Persistent Configuration:** Interface bindings and boot persistence are preserved across module updates in `/data/adb/wadbd/`.
-- **Authorized Key Management:** View, export, import, or revoke saved ADB keys directly from the WebUI or CLI without needing physical PC access.
+---
 
 ## Features
 
-- **Toggle Wireless ADB:** Enable or disable wireless ADB on any custom port (default: 5555).
-- **Interface & Subnet Whitelisting:** Drops all incoming ADB traffic on unapproved interfaces using kernel `iptables`. Localhost (`lo`) is always permitted.
-- **Boot Persistence:** Automatically starts wireless ADB on boot on your desired port and restores all firewall bindings.
-- **Key Management:** List all authorized devices (`adb_keys`), revoke individual keys, or import keys without waiting for the RSA trust prompt.
-- **Native Material 3 App:** Manage ports, active client sessions, firewall bindings, and RSA keys directly from a modern Material You Android app with Quick Settings Tile integration.
-- **Active Connection Alerts:** Displays a real-time Android system notification whenever an external ADB client connects, showing remote client IP and session count, and automatically clears the notification when the connection terminates.
+* **Firewall Isolation:** Drops all incoming ADB packets on unapproved interfaces using kernel `iptables`. Restrict ADB to local Wi-Fi (`wlan0`), dynamic VPN tunnels (`tun+`), or private CIDR subnets (e.g. `192.168.1.0/24`, Tailscale mesh).
+* **Native Material 3 App:** Manage ports, connected sessions, firewall rules, and keys through a modern Material You app with Quick Settings Tile integration.
+* **Active Session Alerts:** Real-time ongoing system notifications displaying the connected machine identity (`user@laptop`) and remote IP, with an interactive **Disconnect** action button.
+* **RSA Key Manager:** View and revoke authorized keys, import public keys directly, and approve or drop pending unauthorized connection attempts.
+* **Boot Persistence:** Automatically restores wireless ADB and applies all firewall bindings on system boot.
+
+---
 
 ## Installation
 
-1. Download the module zip from [Releases](https://github.com/bgwastu/wadbd/releases) or flash via MMRL.
-2. Flash in **Magisk**, **KernelSU**, or **APatch**.
+1. Download the flashable module ZIP (`wadbd-vX.X.zip`) from [Releases](https://github.com/bgwastu/wadbd/releases).
+2. Flash in **KernelSU**, **Magisk**, or **APatch**.
 3. Reboot your device.
 4. Launch the **WADBD** app from your launcher or manage via terminal with `wadbd`.
 
-## CLI Usage
+---
+
+## CLI Reference
 
 Run `wadbd` in a root shell (`su`):
 
-### Basic Controls
-```bash
-# Enable wireless ADB on default port 5555
-wadbd on
+| Command | Description |
+| :--- | :--- |
+| `wadbd on [port]` | Enable wireless ADB (default: 5555) |
+| `wadbd off` | Disable wireless ADB and stop daemon |
+| `wadbd status` | Show status, connected clients, and firewall rules |
+| `wadbd bind <target>` | Restrict ADB to interface (`wlan0`), tunnel (`tun+`), or CIDR |
+| `wadbd unbind <target>` | Remove an interface or subnet restriction |
+| `wadbd unbind-all` | Remove all restrictions (expose ADB to all networks) |
+| `wadbd bind-status` | Display active iptables rules and interface states |
+| `wadbd enable-on-boot [port]` | Enable wireless ADB automatically on system boot |
+| `wadbd disable-on-boot` | Disable boot persistence |
+| `wadbd notify [on\|off\|status]` | Control real-time active connection notifications |
+| `wadbd --list-keys` | List all authorized computers and fingerprints |
+| `wadbd --import-key <path>` | Pre-authorize a computer's `adbkey.pub` |
+| `wadbd --remove-key <id>` | Revoke a specific authorized key |
+| `wadbd --clear-keys` | Revoke all authorized keys |
 
-# Enable on a custom port
-wadbd on 5556
+---
 
-# Disable wireless ADB
-wadbd off
-
-# View current ADB daemon and network status
-wadbd status
-```
-
-### Interface & Subnet Binding
-```bash
-# Restrict ADB to Wi-Fi only
-wadbd bind wlan0
-
-# Restrict ADB to all VPN tunnels (wildcard matches tun0, tun1, etc. dynamically)
-wadbd bind tun+
-
-# Restrict ADB to a specific local subnet
-wadbd bind 192.168.1.0/24
-
-# Restrict ADB to Tailscale mesh
-wadbd bind tailscale
-
-# Check current binding status and active iptables rules
-wadbd bind-status
-
-# Remove a specific restriction
-wadbd unbind wlan0
-
-# Remove all restrictions (open on all interfaces)
-wadbd unbind-all
-```
-
-### Boot Persistence
-```bash
-# Enable wireless ADB on boot
-wadbd enable-on-boot 5555
-
-# Disable wireless ADB on boot
-wadbd disable-on-boot
-```
-
-### Active Connection Alerts
-```bash
-# Enable notifications when clients connect (default)
-wadbd notify on
-
-# Disable connection notifications
-wadbd notify off
-
-# Check monitor status and active sessions
-wadbd notify status
-```
-
-### Authorized Key Management
-```bash
-# List all devices authorized to connect to your phone
-wadbd --list-keys
-
-# Remove an authorized device by ID
-wadbd --remove-key 0
-
-# Import an adbkey.pub directly
-wadbd --import-key /sdcard/Download/adbkey.pub
-
-# Backup or restore authorized keys
-wadbd --backup /sdcard/Download/adb_keys_backup
-wadbd --restore /sdcard/Download/adb_keys_backup
-
-# Revoke all authorized keys
-wadbd --clear-keys
-```
-
-## How It Works
-
-When any interface or subnet is bound:
-1. All incoming TCP packets targeting the configured ADB port on unapproved interfaces are dropped via `iptables`:
-   ```text
-   -A INPUT -p tcp --dport <port> -j DROP
-   ```
-2. Whitelisted interfaces or subnets are inserted above the drop rule:
-   ```text
-   -A INPUT -i lo -p tcp --dport <port> -j ACCEPT
-   -A INPUT -i <interface> -p tcp --dport <port> -j ACCEPT
-   -A INPUT -s <subnet_cidr> -p tcp --dport <port> -j ACCEPT
-   ```
-3. When no interfaces are bound, no iptables restrictions are applied.
+## License
+MIT

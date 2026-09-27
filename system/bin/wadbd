@@ -342,9 +342,7 @@ stop_monitor() {
         fi
         rm -f "$pid_file"
     fi
-    # Dismiss active notification
-    su 2000 -c "service call notification 8 s16 'com.android.shell' s16 'com.android.shell' s16 'wadbd_session' i32 2020 i32 0" >/dev/null 2>&1
-    su 2000 -c "cmd notification snooze --for 1 '0|com.android.shell|2020|wadbd_session|2000'" >/dev/null 2>&1
+    am broadcast -n net.wastu.wadbd/.service.SessionReceiver -a net.wastu.wadbd.ACTION_SESSION_UPDATE --ei count 0 >/dev/null 2>&1
 }
 
 notify_command() {
@@ -359,7 +357,7 @@ notify_command() {
             ;;
         off|disable)
             echo "0" > "$config_file"
-            su 2000 -c "service call notification 8 s16 'com.android.shell' s16 'com.android.shell' s16 'wadbd_session' i32 2020 i32 0" >/dev/null 2>&1
+            am broadcast -n net.wastu.wadbd/.service.SessionReceiver -a net.wastu.wadbd.ACTION_SESSION_UPDATE --ei count 0 >/dev/null 2>&1
             echo -e "${GREEN} => Active connection notification disabled.${NC}"
             ;;
         status)
@@ -403,7 +401,6 @@ enable_wireless_adb() {
     echo -e "${GREEN} => Wireless ADB enabled on port $port.${NC}"
     show_default_gateway
     start_monitor
-    su -lp 2000 -c "cmd notification post -S bigtext -t 'WADBD' 'Tag' 'Wireless ADBD Enabled on port $port !!'" > /dev/null 2>&1
 }
 
 show_default_gateway() {
