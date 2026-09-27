@@ -32,6 +32,12 @@ object RootShell {
     suspend fun execLines(cmd: String): List<String> = withContext(Dispatchers.IO) {
         Shell.cmd(cmd).exec().out
     }
+    suspend fun requestRoot(): Boolean = withContext(Dispatchers.IO) {
+        Shell.getShell().isRoot
+    }
+
+
+
 }
 
 data class CommandResult(

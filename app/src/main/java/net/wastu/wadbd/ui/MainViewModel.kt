@@ -33,6 +33,13 @@ class MainViewModel(
         }
     }
 
+    fun requestRoot() {
+        viewModelScope.launch {
+            repository.requestRoot()
+            refresh()
+        }
+    }
+
     fun toggleAdb(enable: Boolean, port: Int = 5555) {
         viewModelScope.launch {
             repository.toggleAdb(enable, port)

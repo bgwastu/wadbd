@@ -149,7 +149,7 @@ fun MainScreen(viewModel: MainViewModel) {
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 if (!state.isRootAvailable) {
-                    RootWarningBanner()
+                    RootWarningBanner(onGrantRoot = viewModel::requestRoot)
                 }
                 Box(modifier = Modifier.weight(1f)) {
                     when (selectedItem) {
