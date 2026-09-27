@@ -1,7 +1,7 @@
 id=wadbd
 name=WirelessADBD-Controller
-version=5.4
-versionCode=11
+version=5.5
+versionCode=12
 author=bgwastu
 description=Wireless ADB controller with interface binding and connection alerts.
 updateJson=https://raw.githubusercontent.com/bgwastu/wadbd/master/updateJson

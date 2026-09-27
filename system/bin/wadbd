@@ -120,8 +120,7 @@ rebuild_bindings() {
 resolve_target() {
     local t="$1"
     case "$t" in
-        tailscale) echo "100.64.0.0/10" ;;
-        mesh)      echo "100.96.0.0/12" ;;
+        tailscale|mesh|vpn) echo "tun+" ;;
         *)                 echo "$t" ;;
     esac
 }
@@ -296,8 +295,7 @@ bind_status() {
 
 list_interfaces() {
     echo -e "${YELLOW}Available network interfaces & presets:${NC}"
-    echo -e "  ${GREEN}[PRESET]${NC} tun+       (Wildcard - all VPN/WireGuard tunnels)"
-    echo -e "  ${GREEN}[PRESET]${NC} tailscale  (100.64.0.0/10 - Tailscale mesh)"
+    echo -e "  ${GREEN}[PRESET]${NC} tun+ (or tailscale) - All VPN & Mesh Tunnels (WireGuard/Tailscale)"
     echo ""
     echo -e "${YELLOW}Active system interfaces:${NC}"
     ip link show | grep -E '^[0-9]+:' | awk -F': ' '{print $2}' | grep -vE '^(lo|dummy|ifb|gre|gretap|erspan|tunl|sit|ip6|ip6_vti|ip_vti|ccmni|miw|p2p)' | while read -r iface; do
