@@ -1,7 +1,7 @@
 id=wadbd
 name=WirelessADBD-Controller
-version=5.2
-versionCode=9
-author=rhythmcache (fork: interface & subnet binding, active connection alerts)
-description=A Wireless ADB Controller with per-interface/subnet binding, active connection alerts, and WebUI support (VPN tunnels, Tailscale, LAN)
+version=5.3
+versionCode=10
+author=bgwastu
+description=Wireless ADB controller with interface binding and connection alerts.
 updateJson=https://raw.githubusercontent.com/bgwastu/wadbd/master/updateJson

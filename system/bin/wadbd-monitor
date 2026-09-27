@@ -16,6 +16,7 @@ cleanup() {
     # Dismiss notification on exit if active
     su 2000 -c "service call notification 8 s16 'com.android.shell' s16 'com.android.shell' s16 '$TAG' i32 $NOTIF_ID i32 0" >/dev/null 2>&1
     su 2000 -c "cmd notification snooze --for 1 '0|com.android.shell|$NOTIF_ID|$TAG|2000'" >/dev/null 2>&1
+    am broadcast -n net.wastu.wadbd/.service.SessionReceiver -a net.wastu.wadbd.ACTION_SESSION_UPDATE --ei count 0 >/dev/null 2>&1
     rm -f "$PID_FILE"
     exit 0
 }
@@ -69,6 +70,8 @@ while true; do
 
             # Post notification as user 2000 (com.android.shell)
             su 2000 -c "cmd notification post -S bigtext -t '$title' -i @android:drawable/stat_sys_warning '$TAG' '$text'" >/dev/null 2>&1
+            # Broadcast to native companion app if present
+            am broadcast -n net.wastu.wadbd/.service.SessionReceiver -a net.wastu.wadbd.ACTION_SESSION_UPDATE --es client "$client_ips" --ei count $count >/dev/null 2>&1
 
             prev_count=$count
             prev_clients="$client_ips"
@@ -80,6 +83,8 @@ while true; do
             # Dismiss notification immediately
             su 2000 -c "service call notification 8 s16 'com.android.shell' s16 'com.android.shell' s16 '$TAG' i32 $NOTIF_ID i32 0" >/dev/null 2>&1
             su 2000 -c "cmd notification snooze --for 1 '0|com.android.shell|$NOTIF_ID|$TAG|2000'" >/dev/null 2>&1
+            # Broadcast disconnect to native companion app
+            am broadcast -n net.wastu.wadbd/.service.SessionReceiver -a net.wastu.wadbd.ACTION_SESSION_UPDATE --ei count 0 >/dev/null 2>&1
             prev_count=0
             prev_clients=""
         fi
