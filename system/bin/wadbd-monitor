@@ -20,7 +20,7 @@ cleanup() {
     exit 0
 }
 
-trap cleanup INT TERM HUP EXIT
+trap cleanup INT TERM HUP
 
 prev_count=0
 prev_clients=""

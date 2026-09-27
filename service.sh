@@ -48,7 +48,7 @@ if [ -f "$BOOT_FLAG" ]; then
 
         # Start connection monitor daemon
         if [ -x "/data/adb/modules/wadbd/system/bin/wadbd-monitor" ]; then
-            /data/adb/modules/wadbd/system/bin/wadbd-monitor &
+            nohup /data/adb/modules/wadbd/system/bin/wadbd-monitor >/dev/null 2>&1 &
         fi
     fi
 fi

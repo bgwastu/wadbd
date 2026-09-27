@@ -329,9 +329,9 @@ start_monitor() {
         fi
     fi
     if [ -x "$MODULE_PATH/system/bin/wadbd-monitor" ]; then
-        "$MODULE_PATH/system/bin/wadbd-monitor" &
+        nohup "$MODULE_PATH/system/bin/wadbd-monitor" >/dev/null 2>&1 &
     elif [ -x "/system/bin/wadbd-monitor" ]; then
-        /system/bin/wadbd-monitor &
+        nohup /system/bin/wadbd-monitor >/dev/null 2>&1 &
     fi
 }
 
