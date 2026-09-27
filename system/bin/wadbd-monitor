@@ -61,7 +61,8 @@ while true; do
                 for k in $(awk '{print $NF}' /data/misc/adb/adb_keys 2>/dev/null); do
                     h=$(echo "$k" | cut -d'@' -f2)
                     if [ -n "$h" ] && [ "$h" != "Unknown" ]; then
-                        resolved_ip=$(ping -c 1 -W 1 "$h.mesh" 2>/dev/null | grep -oE '\(([0-9a-fA-F:\.]+)\)' | tr -d '()')
+                        resolved_ip=$(ping -c 1 -W 1 "$h.mesh" 2>/dev/null | head -n 1 | grep -oE '\(([0-9a-fA-F:\.]+)\)' | head -n 1 | tr -d '()')
+                        [ -z "$resolved_ip" ] && resolved_ip=$(ping6 -c 1 -W 1 "$h.mesh" 2>/dev/null | head -n 1 | grep -oE '\(([0-9a-fA-F:\.]+)\)' | head -n 1 | tr -d '()')
                         if [ -n "$resolved_ip" ] && echo "$client_ips" | grep -q "$resolved_ip"; then
                             peer_name="$k"
                             break
