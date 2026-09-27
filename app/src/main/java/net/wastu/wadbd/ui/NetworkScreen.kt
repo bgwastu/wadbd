@@ -3,17 +3,20 @@ package net.wastu.wadbd.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import net.wastu.wadbd.data.WadbdState
+import net.wastu.wadbd.ui.components.*
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NetworkScreen(
     state: WadbdState,
@@ -23,123 +26,88 @@ fun NetworkScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // ── 1. Firewall Isolation Status ──
         item {
-            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            PreferenceCategoryHeader("FIREWALL ISOLATION")
+            PreferenceGroup {
+                PreferenceItem(
+                    title = if (state.isRestricted) "Firewall Active (Restricted)" else "Firewall Open",
+                    subtitle = if (state.isRestricted) {
+                        "Only traffic from approved subnets and interfaces is accepted. All other packets are dropped by iptables."
+                    } else {
+                        "ADB is accessible across all networks without interface or subnet restrictions."
+                    },
+                    icon = if (state.isRestricted) Icons.Default.Shield else Icons.Default.GppMaybe,
+                    trailing = {
+                        if (state.isRestricted) {
+                            TextButton(
+                                onClick = { viewModel.unbindAll() },
+                                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Text("Unbind All")
+                            }
+                        }
+                    }
+                )
+            }
+        }
+
+        // ── 2. Network Presets ──
+        item {
+            PreferenceCategoryHeader("PRESET BINDINGS")
+            PreferenceGroup {
+                SwitchPreference(
+                    title = "Tailscale Mesh",
+                    subtitle = "Restrict ADB to Tailscale nodes (100.64.0.0/10)",
+                    icon = Icons.Default.VpnLock,
+                    checked = state.boundTargets.contains("100.64.0.0/10"),
+                    onCheckedChange = { checked ->
+                        if (checked) viewModel.bindTarget("tailscale") else viewModel.unbindTarget("100.64.0.0/10")
+                    }
+                )
+
+                PreferenceDivider()
+
+                SwitchPreference(
+                    title = "All VPN Tunnels",
+                    subtitle = "Dynamic wildcard (tun+) matching WireGuard / OpenVPN",
+                    icon = Icons.Default.Security,
+                    checked = state.boundTargets.contains("tun+"),
+                    onCheckedChange = { checked ->
+                        if (checked) viewModel.bindTarget("tun+") else viewModel.unbindTarget("tun+")
+                    }
+                )
+
+                PreferenceDivider()
+
+                SwitchPreference(
+                    title = "Wi-Fi Interface",
+                    subtitle = "Local WLAN network only (wlan0)",
+                    icon = Icons.Default.Wifi,
+                    checked = state.boundTargets.contains("wlan0"),
+                    onCheckedChange = { checked ->
+                        if (checked) viewModel.bindTarget("wlan0") else viewModel.unbindTarget("wlan0")
+                    }
+                )
+            }
+        }
+
+        // ── 3. Custom CIDR / Interface ──
+        item {
+            PreferenceCategoryHeader("CUSTOM CIDR / INTERFACE")
+            PreferenceGroup {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "Firewall Isolation (iptables)",
+                        text = "Add Target",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = if (state.isRestricted) {
-                            "Restricted: ADB is blocked on all unapproved interfaces. Only bound subnets and tunnels are accepted."
-                        } else {
-                            "Open: ADB is accessible from all network interfaces and IP addresses."
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (state.isRestricted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                    )
-
-                    if (state.isRestricted) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        OutlinedButton(
-                            onClick = { viewModel.unbindAll() },
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                        ) {
-                            Icon(Icons.Default.LockOpen, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Unbind All (Allow All Interfaces)")
-                        }
-                    }
-                }
-            }
-        }
-
-        item {
-            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Quick Presets",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        FilterChip(
-                            selected = state.boundTargets.contains("100.64.0.0/10"),
-                            onClick = {
-                                if (state.boundTargets.contains("100.64.0.0/10")) {
-                                    viewModel.unbindTarget("100.64.0.0/10")
-                                } else {
-                                    viewModel.bindTarget("tailscale")
-                                }
-                            },
-                            label = { Text("Tailscale") },
-                            leadingIcon = {
-                                if (state.boundTargets.contains("100.64.0.0/10")) {
-                                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
-                                }
-                            }
-                        )
-
-                        FilterChip(
-                            selected = state.boundTargets.contains("tun+"),
-                            onClick = {
-                                if (state.boundTargets.contains("tun+")) {
-                                    viewModel.unbindTarget("tun+")
-                                } else {
-                                    viewModel.bindTarget("tun+")
-                                }
-                            },
-                            label = { Text("All Tunnels (tun+)") },
-                            leadingIcon = {
-                                if (state.boundTargets.contains("tun+")) {
-                                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
-                                }
-                            }
-                        )
-
-                        FilterChip(
-                            selected = state.boundTargets.contains("wlan0"),
-                            onClick = {
-                                if (state.boundTargets.contains("wlan0")) {
-                                    viewModel.unbindTarget("wlan0")
-                                } else {
-                                    viewModel.bindTarget("wlan0")
-                                }
-                            },
-                            label = { Text("Wi-Fi (wlan0)") },
-                            leadingIcon = {
-                                if (state.boundTargets.contains("wlan0")) {
-                                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
-                                }
-                            }
-                        )
-                    }
-                }
-            }
-        }
-
-        item {
-            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Add Custom Binding",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Enter a network interface (e.g. eth0) or CIDR subnet (e.g. 192.168.1.0/24):",
+                        text = "Enter a specific interface name (e.g. eth0) or CIDR subnet (e.g. 192.168.1.0/24):",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -165,7 +133,70 @@ fun NetworkScreen(
                                 }
                             }
                         ) {
-                            Text("Bind")
+                            Text("Add")
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── 4. Active Rules List ──
+        item {
+            PreferenceCategoryHeader("ACTIVE FIREWALL RULES (${state.boundTargets.size})")
+            if (state.boundTargets.isEmpty()) {
+                PreferenceGroup {
+                    PreferenceItem(
+                        title = "No restrictions configured",
+                        subtitle = "ADB packets are accepted from all interfaces",
+                        icon = Icons.Default.LockOpen
+                    )
+                }
+            } else {
+                PreferenceGroup {
+                    state.boundTargets.forEachIndexed { index, target ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = if (target.contains("/")) Icons.Default.Router else Icons.Default.SettingsEthernet,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text(
+                                        text = target,
+                                        fontFamily = if (target.contains("/") || target.contains("+")) FontFamily.Monospace else FontFamily.Default,
+                                        fontWeight = FontWeight.Medium,
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                    val subDesc = when {
+                                        target == "100.64.0.0/10" -> "Tailscale CGNAT Subnet"
+                                        target == "tun+" -> "All VPN Tunnels"
+                                        target == "wlan0" -> "Wireless Interface"
+                                        target.contains("/") -> "Subnet CIDR Rule"
+                                        else -> "Network Interface Rule"
+                                    }
+                                    Text(
+                                        text = subDesc,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            IconButton(onClick = { viewModel.unbindTarget(target) }) {
+                                Icon(Icons.Default.DeleteOutline, contentDescription = "Unbind", tint = MaterialTheme.colorScheme.error)
+                            }
+                        }
+
+                        if (index < state.boundTargets.size - 1) {
+                            PreferenceDivider()
                         }
                     }
                 }
@@ -173,57 +204,7 @@ fun NetworkScreen(
         }
 
         item {
-            Text(
-                text = "Active Bindings (${state.boundTargets.size})",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-
-        if (state.boundTargets.isEmpty()) {
-            item {
-                Text(
-                    text = "No active restrictions. ADB is open to all networks.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        } else {
-            items(state.boundTargets) { target ->
-                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = if (target.contains("/")) Icons.Default.Router else Icons.Default.SettingsEthernet,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text(target, fontWeight = FontWeight.Medium)
-                                val subDesc = when {
-                                    target == "100.64.0.0/10" -> "Tailscale CGNAT Subnet"
-                                    target == "tun+" -> "All VPN Tunnels"
-                                    target == "wlan0" -> "Wireless Interface"
-                                    target.contains("/") -> "Subnet CIDR"
-                                    else -> "Network Interface"
-                                }
-                                Text(subDesc, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-
-                        IconButton(onClick = { viewModel.unbindTarget(target) }) {
-                            Icon(Icons.Default.DeleteOutline, contentDescription = "Unbind", tint = MaterialTheme.colorScheme.error)
-                        }
-                    }
-                }
-            }
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

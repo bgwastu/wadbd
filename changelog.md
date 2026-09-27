@@ -1,3 +1,10 @@
+# v5.4
+- Redesign UI to AOSP / Material 3 Settings specifications
+- Add LargeTopAppBar with collapsible scroll behavior and edge-to-edge layout
+- Add rounded preference groups with icon containers and dividers
+- Add hero master toggle card for wireless debugging
+- Enhance RSA key manager and unauthorized attempt approval workflow
+
 # v5.2
 - Add real-time active ADB connection alerts (Android system notification when clients connect)
 - Add background session monitor daemon (`wadbd-monitor`)

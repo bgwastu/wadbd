@@ -1,203 +1,277 @@
 package net.wastu.wadbd.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import net.wastu.wadbd.data.WadbdState
+import net.wastu.wadbd.ui.components.*
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     state: WadbdState,
-    viewModel: MainViewModel
+    viewModel: MainViewModel,
+    onNavigateToNetwork: () -> Unit = {}
 ) {
-    var portText by remember(state.port) { mutableStateOf(state.port.toString()) }
-    val scrollState = rememberScrollState()
+    var showPortDialog by remember { mutableStateOf(false) }
+    var tempPort by remember(state.port) { mutableStateOf(state.port.toString()) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(scrollState),
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Master Switch Card
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+        // ── 1. Master Hero Switch (Pixel/AOSP Settings Style) ──
+        item {
+            val heroBgColor by animateColorAsState(
+                if (state.isEnabled) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                label = "heroBg"
+            )
+            val heroContentColor by animateColorAsState(
+                if (state.isEnabled) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                label = "heroContent"
+            )
+
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(28.dp))
+                    .clickable { viewModel.toggleAdb(!state.isEnabled, state.port) },
+                color = heroBgColor,
+                shape = RoundedCornerShape(28.dp)
+            ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.padding(20.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Surface(
+                        shape = CircleShape,
+                        color = if (state.isEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                        modifier = Modifier.size(52.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = if (state.isEnabled) Icons.Default.WifiTethering else Icons.Default.WifiTetheringOff,
+                                contentDescription = null,
+                                tint = if (state.isEnabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (state.isEnabled) "Wireless ADB Active" else "Wireless ADB Disabled",
+                            text = if (state.isEnabled) "Wireless ADB On" else "Wireless ADB Off",
                             style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            color = heroContentColor
                         )
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = if (state.isEnabled) "Listening on port ${state.port}" else "Daemon stopped",
+                            text = if (state.isEnabled) "Port ${state.port} • Ready for connect" else "Tap switch to enable debugging",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = heroContentColor.copy(alpha = 0.8f)
                         )
                     }
+
                     Switch(
                         checked = state.isEnabled,
-                        onCheckedChange = { enable ->
-                            val p = portText.toIntOrNull() ?: 5555
-                            viewModel.toggleAdb(enable, p)
-                        }
+                        onCheckedChange = { viewModel.toggleAdb(it, state.port) }
                     )
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                OutlinedTextField(
-                    value = portText,
-                    onValueChange = { portText = it },
-                    label = { Text("Port") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !state.isEnabled
-                )
             }
         }
 
-        // Active Sessions Card
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Sensors,
-                            contentDescription = null,
-                            tint = if (state.activeSessions.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Connected Clients (${state.activeSessions.size})",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                    if (state.activeSessions.isNotEmpty()) {
-                        TextButton(onClick = { viewModel.kickAllSessions() }) {
-                            Text("Disconnect All")
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                if (state.activeSessions.isEmpty()) {
-                    Text(
-                        text = "No active connections. ADB is currently idle.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 8.dp)
+        // ── 2. Active Session Card (Real-Time Live Devices) ──
+        item {
+            PreferenceCategoryHeader("ACTIVE SESSIONS")
+            if (state.activeSessions.isEmpty()) {
+                PreferenceGroup {
+                    PreferenceItem(
+                        title = "No active connections",
+                        subtitle = if (state.isEnabled) "Waiting for incoming ADB client..." else "Enable wireless ADB above to connect",
+                        icon = Icons.Default.PermDeviceInformation
                     )
-                } else {
-                    state.activeSessions.forEach { session ->
-                        ListItem(
-                            headlineContent = {
+                }
+            } else {
+                PreferenceGroup {
+                    state.activeSessions.forEachIndexed { index, session ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Pulsing / Active Green Indicator
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF4CAF50))
+                            )
+
+                            Spacer(modifier = Modifier.width(16.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = if (session.peerName.isNotEmpty()) session.peerName else session.cleanIp,
-                                    fontWeight = FontWeight.Medium
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.SemiBold
                                 )
-                            },
-                            supportingContent = {
-                                Text("${session.cleanIp}:${session.remotePort}")
-                            },
-                            trailingContent = {
-                                FilledTonalButton(
-                                    onClick = { viewModel.kickSession(session) },
-                                    colors = ButtonDefaults.filledTonalButtonColors(
-                                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                                        contentColor = MaterialTheme.colorScheme.onErrorContainer
-                                    )
-                                ) {
-                                    Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Kick")
-                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "${session.cleanIp}:${session.remotePort}",
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
-                        )
-                        Divider()
+
+                            FilledTonalButton(
+                                onClick = { viewModel.kickSession(session) },
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                ),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Icon(Icons.Default.LinkOff, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Disconnect", fontSize = 12.sp)
+                            }
+                        }
+
+                        if (index < state.activeSessions.size - 1) {
+                            PreferenceDivider()
+                        }
                     }
                 }
             }
         }
 
-        // Quick Toggles Card
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Preferences",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
+        // ── 3. Configuration & Preferences ──
+        item {
+            PreferenceCategoryHeader("CONFIGURATION")
+            PreferenceGroup {
+                PreferenceItem(
+                    title = "ADB Port",
+                    subtitle = "${state.port} (tap to change)",
+                    icon = Icons.Default.Numbers,
+                    onClick = {
+                        tempPort = state.port.toString()
+                        showPortDialog = true
+                    },
+                    trailing = {
+                        Text(
+                            text = state.port.toString(),
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 )
-                Spacer(modifier = Modifier.height(12.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Connection Notifications", fontWeight = FontWeight.Medium)
-                        Text(
-                            "Display notification when a client connects",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = state.isNotificationEnabled,
-                        onCheckedChange = { viewModel.toggleNotifications(it) }
-                    )
-                }
+                PreferenceDivider()
 
-                Spacer(modifier = Modifier.height(12.dp))
-                Divider()
-                Spacer(modifier = Modifier.height(12.dp))
+                SwitchPreference(
+                    title = "Connection Alerts",
+                    subtitle = "Show notification when client connects",
+                    icon = Icons.Default.NotificationsActive,
+                    checked = state.isNotificationEnabled,
+                    onCheckedChange = { viewModel.toggleNotifications(it) }
+                )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Enable on Boot", fontWeight = FontWeight.Medium)
-                        Text(
-                            "Automatically restore ADB on boot",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = state.isBootEnabled,
-                        onCheckedChange = { viewModel.toggleBoot(it, state.port) }
-                    )
-                }
+                PreferenceDivider()
+
+                SwitchPreference(
+                    title = "Start on Boot",
+                    subtitle = if (state.isBootEnabled) "Starts on port ${state.bootPort} automatically" else "Disabled",
+                    icon = Icons.Default.PowerSettingsNew,
+                    checked = state.isBootEnabled,
+                    onCheckedChange = { viewModel.toggleBoot(it, state.port) }
+                )
             }
         }
+
+        // ── 4. Network & Firewall Access ──
+        item {
+            PreferenceCategoryHeader("SECURITY")
+            PreferenceGroup {
+                PreferenceItem(
+                    title = "Access Restrictions",
+                    subtitle = if (state.isRestricted) {
+                        "Restricted to ${state.boundTargets.size} target(s): ${state.boundTargets.joinToString(", ")}"
+                    } else {
+                        "Open: Accessible across all network interfaces"
+                    },
+                    icon = if (state.isRestricted) Icons.Default.Shield else Icons.Default.GppMaybe,
+                    onClick = onNavigateToNetwork,
+                    trailing = {
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                )
+            }
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+
+    if (showPortDialog) {
+        AlertDialog(
+            onDismissRequest = { showPortDialog = false },
+            title = { Text("Change ADB Port") },
+            text = {
+                OutlinedTextField(
+                    value = tempPort,
+                    onValueChange = { tempPort = it },
+                    label = { Text("Port Number (1-65535)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val p = tempPort.toIntOrNull()
+                        if (p != null && p in 1..65535) {
+                            viewModel.toggleAdb(true, p)
+                            showPortDialog = false
+                        }
+                    }
+                ) {
+                    Text("Apply & Restart")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPortDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
