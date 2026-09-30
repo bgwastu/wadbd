@@ -2,9 +2,16 @@ name: Release
 
 on:
   push:
+    branches:
+      - master
+      - main
     tags:
       - 'v*'
   workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -15,12 +22,24 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Get Version
         id: get_version
         run: |
-          VERSION=${GITHUB_REF_NAME#v}
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION=$(grep -E '^version=' module.prop | cut -d= -f2- | tr -d '\r' | xargs)
+            VERSION="${VERSION#v}"
+          fi
+          if [ -z "$VERSION" ]; then
+            echo "::error::Could not determine version from module.prop or tag"
+            exit 1
+          fi
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "TAG_NAME=v${VERSION}" >> $GITHUB_ENV
 
       - name: Package Magisk/KSU Module ZIP
         run: |
@@ -36,10 +55,28 @@ jobs:
             LICENSE
           cp "wadbd-v${{ env.VERSION }}.zip" wadbd.zip
 
+      - name: Upload Module ZIP Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wadbd-module
+          path: wadbd.zip
+          retention-days: 30
+
+      - name: Ensure Git Tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -f "${TAG_NAME}" "${GITHUB_SHA}"
+          git push -f origin "${TAG_NAME}" || true
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.TAG_NAME }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ env.TAG_NAME }}
           files: |
             wadbd-v${{ env.VERSION }}.zip
             wadbd.zip
           generate_release_notes: true
+          make_latest: true
