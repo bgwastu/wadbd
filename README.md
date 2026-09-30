@@ -1,6 +1,6 @@
 # WADBD
 
-WADBD controls Android Wireless ADB from a root module. It uses the module WebUI or shell commands and does not require a companion APK.
+WADBD is a module that allows you to control Android Wireless ADB from any network interface.
 
 ## Features
 
