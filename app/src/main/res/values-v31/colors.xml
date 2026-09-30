@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- Monet palette shades supplied by Android 12+ system resources. -->
-    <item name="ic_launcher_background" type="color">@android:color/system_accent1_600</item>
-    <item name="ic_launcher_foreground_color" type="color">@android:color/system_accent1_100</item>
-</resources>

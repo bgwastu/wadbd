@@ -1,56 +1,43 @@
-# WADBD — Wireless ADB Controller
+# WADBD
 
-Network isolation, active connection alerts, and native Material 3 controls for Android's wireless ADB daemon.
-
-<p align="center">
-  <img src="docs/images/screenshot_dashboard.png" width="31%" alt="Dashboard" />
-  <img src="docs/images/screenshot_keys.png" width="31%" alt="RSA Keys" />
-  <img src="docs/images/screenshot_firewall.png" width="31%" alt="Firewall" />
-</p>
-
----
+WADBD controls Android Wireless ADB from a root module. It uses the module WebUI or shell commands and does not require a companion APK.
 
 ## Features
 
-* **Firewall Isolation:** Drops all incoming ADB packets on unapproved interfaces using kernel `iptables`. Restrict ADB to local Wi-Fi (`wlan0`), dynamic VPN tunnels (`tun+`), or private CIDR subnets (e.g. `192.168.1.0/24`, Tailscale mesh).
-* **Native Material 3 App:** Manage ports, connected sessions, firewall rules, and keys through a modern Material You app with Quick Settings Tile integration.
-* **Active Session Alerts:** Real-time ongoing system notifications displaying the connected machine identity (`user@laptop`) and remote IP, with an interactive **Disconnect** action button.
-* **RSA Key Manager:** View and revoke authorized keys, import public keys directly, and approve or drop pending unauthorized connection attempts.
-* **Boot Persistence:** Automatically restores wireless ADB and applies all firewall bindings on system boot.
+- Enable or disable Wireless ADB and choose its port.
+- Limit connections to selected network interfaces, VPN tunnels, or subnets.
+- Start Wireless ADB automatically at boot.
+- Show shell notifications when an ADB client connects. Notifications can be turned off.
+- View, import, and revoke authorized ADB keys.
+- Toggle ADB RSA authentication from the WebUI.
 
----
+## Install
 
-## Installation
+Flash the module ZIP in KernelSU, APatch, or Magisk, then reboot if the manager requests it. KernelSU and APatch provide the module WebUI. Magisk users can run the commands below from a root shell.
 
-1. Download the flashable module ZIP (`wadbd-vX.X.zip`) from [Releases](https://github.com/bgwastu/wadbd/releases).
-2. Flash in **KernelSU**, **Magisk**, or **APatch**.
-3. Reboot your device.
-4. Launch the **WADBD** app from your launcher or manage via terminal with `wadbd`.
+## Commands
 
----
+```sh
+wadbd on [port]             # Enable Wireless ADB; default port is 5555
+wadbd off                   # Disable Wireless ADB
+wadbd status                # Show current state and connected clients
+wadbd enable-on-boot [port] # Enable Wireless ADB at boot
+wadbd disable-on-boot       # Disable start at boot
+wadbd bind wlan0            # Allow connections through one interface
+wadbd bind tun+             # Allow connections through matching VPN tunnels
+wadbd bind 192.168.1.0/24   # Allow connections from a subnet
+wadbd unbind <target>       # Remove one network restriction
+wadbd unbind-all            # Remove all network restrictions
+wadbd notify on|off|status  # Control connection notifications
+wadbd auth open|secure|status # Control ADB RSA authentication
+wadbd --list-keys           # List authorized ADB keys
+wadbd --import-key <path>   # Import a public key from the phone
+wadbd --remove-key <id>     # Revoke one key
+wadbd --clear-keys          # Revoke all keys
+```
 
-## CLI Reference
+## Security
 
-Run `wadbd` in a root shell (`su`):
+ADB authentication is enabled by default. **Allow anyone** disables the RSA trust prompt for ADB clients, including on locked production builds. WADBD restores the device's `ro.debuggable` property after adbd starts. This can affect USB ADB as well as wireless ADB. Any client that can reach ADB can open a shell; this does not grant root by itself. Turn the setting off to require RSA authentication again.
 
-| Command | Description |
-| :--- | :--- |
-| `wadbd on [port]` | Enable wireless ADB (default: 5555) |
-| `wadbd off` | Disable wireless ADB and stop daemon |
-| `wadbd status` | Show status, connected clients, and firewall rules |
-| `wadbd bind <target>` | Restrict ADB to interface (`wlan0`), tunnel (`tun+`), or CIDR |
-| `wadbd unbind <target>` | Remove an interface or subnet restriction |
-| `wadbd unbind-all` | Remove all restrictions (expose ADB to all networks) |
-| `wadbd bind-status` | Display active iptables rules and interface states |
-| `wadbd enable-on-boot [port]` | Enable wireless ADB automatically on system boot |
-| `wadbd disable-on-boot` | Disable boot persistence |
-| `wadbd notify [on\|off\|status]` | Control real-time active connection notifications |
-| `wadbd --list-keys` | List all authorized computers and fingerprints |
-| `wadbd --import-key <path>` | Pre-authorize a computer's `adbkey.pub` |
-| `wadbd --remove-key <id>` | Revoke a specific authorized key |
-| `wadbd --clear-keys` | Revoke all authorized keys |
-
----
-
-## License
-MIT
+Stored keys are kept when unauthenticated mode is enabled. Key management is read-only until RSA authentication is restored.

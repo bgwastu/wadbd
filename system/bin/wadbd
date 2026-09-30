@@ -14,6 +14,7 @@ MODULE_PATH="/data/adb/modules/wadbd"
 PERSIST_PATH="/data/adb/wadbd"
 BIND_FILE="$PERSIST_PATH/bind_ifaces"
 BOOT_FLAG="$PERSIST_PATH/enable_on_boot"
+AUTH_MODE_FILE="$PERSIST_PATH/auth_mode"
 
 # Ensure persistent data dir
 mkdir -p "$PERSIST_PATH" 2>/dev/null
@@ -34,6 +35,7 @@ usage() {
     echo -e "  $cmd bind-status            - Show current binding state."
     echo -e "  $cmd list-interfaces        - List available network interfaces."
     echo -e "  $cmd notify [on|off|status] - Control active connection notifications."
+    echo -e "  $cmd auth [open|secure|status] - Control ADB RSA authentication."
     echo -e "  $cmd --import-key <path>    - Import an adbkey.pub file to authorize ADB without prompt."
     echo -e "  $cmd --backup <path>        - Backup authorized adb_keys"
     echo -e "  $cmd --restore <path>       - Restore backed up adb_keys"
@@ -333,6 +335,11 @@ start_monitor() {
     fi
 }
 
+clear_connection_notification() {
+    su 2000 -c "service call notification 8 s16 'com.android.shell' s16 'com.android.shell' s16 'wadbd_session' i32 2020 i32 0" >/dev/null 2>&1
+    su 2000 -c "cmd notification snooze --for 1 '0|com.android.shell|2020|wadbd_session|2000'" >/dev/null 2>&1
+}
+
 stop_monitor() {
     local pid_file="$PERSIST_PATH/monitor.pid"
     if [ -f "$pid_file" ]; then
@@ -342,7 +349,7 @@ stop_monitor() {
         fi
         rm -f "$pid_file"
     fi
-    am broadcast -n net.wastu.wadbd/.service.SessionReceiver -a net.wastu.wadbd.ACTION_SESSION_UPDATE --ei count 0 >/dev/null 2>&1
+    clear_connection_notification
 }
 
 notify_command() {
@@ -357,7 +364,7 @@ notify_command() {
             ;;
         off|disable)
             echo "0" > "$config_file"
-            am broadcast -n net.wastu.wadbd/.service.SessionReceiver -a net.wastu.wadbd.ACTION_SESSION_UPDATE --ei count 0 >/dev/null 2>&1
+            clear_connection_notification
             echo -e "${GREEN} => Active connection notification disabled.${NC}"
             ;;
         status)
@@ -375,6 +382,139 @@ notify_command() {
             ;;
         *)
             echo -e "${PINK}Usage: wadbd notify [on|off|status]${NC}"
+            ;;
+    esac
+}
+
+find_resetprop() {
+    for candidate in /data/adb/ksu/bin/resetprop /data/adb/magisk/resetprop /data/adb/ap/bin/resetprop; do
+        if [ -x "$candidate" ]; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+    command -v resetprop 2>/dev/null
+}
+
+auth_is_supported() {
+    [ -n "$(find_resetprop)" ]
+}
+
+auth_mode() {
+    local mode="secure"
+    if [ -f "$AUTH_MODE_FILE" ]; then
+        mode=$(cat "$AUTH_MODE_FILE" 2>/dev/null | tr -d '[:space:]')
+    fi
+    case "$mode" in open|secure) echo "$mode" ;; *) echo "secure" ;; esac
+}
+
+set_auth_mode() {
+    local requested="$1"
+    local prop_tool current_prop desired_prop previous_mode restart_adbd=0
+    local current_debuggable verified_state temporary_debuggable=0
+    previous_mode=$(auth_mode)
+    prop_tool=$(find_resetprop)
+
+    case "$requested" in
+        open)
+            if [ -z "$prop_tool" ]; then
+                echo -e "${PINK}Error: resetprop is unavailable; ADB authentication was not changed.${NC}"
+                return 2
+            fi
+            desired_prop="0"
+            ;;
+        secure)
+            desired_prop="1"
+            ;;
+        *)
+            echo -e "${PINK}Usage: wadbd auth [open|secure|status]${NC}"
+            return 2
+            ;;
+    esac
+
+    current_prop=$(getprop ro.adb.secure 2>/dev/null | tr -d '[:space:]')
+    current_debuggable=$(getprop ro.debuggable 2>/dev/null | tr -d '[:space:]')
+    verified_state=$(getprop ro.boot.verifiedbootstate 2>/dev/null | tr -d '[:space:]')
+    [ -n "$current_debuggable" ] || current_debuggable="0"
+    if [ "$current_prop" != "$desired_prop" ]; then
+        if [ -z "$prop_tool" ]; then
+            echo -e "${PINK}Error: resetprop is unavailable; ADB authentication was not changed.${NC}"
+            return 1
+        fi
+        "$prop_tool" -n ro.adb.secure "$desired_prop" >/dev/null 2>&1 || {
+            echo -e "${PINK}Error: Could not update ro.adb.secure; ADB authentication was not changed.${NC}"
+            return 1
+        }
+        if [ "$(getprop ro.adb.secure 2>/dev/null | tr -d '[:space:]')" != "$desired_prop" ]; then
+            "$prop_tool" -n ro.adb.secure "$current_prop" >/dev/null 2>&1
+            echo -e "${PINK}Error: Android did not accept the ADB authentication setting.${NC}"
+            return 1
+        fi
+        restart_adbd=1
+    fi
+
+    if [ "$previous_mode" != "$requested" ]; then
+        restart_adbd=1
+    fi
+    if [ "$restart_adbd" = "1" ]; then
+        # AOSP adbd only consults ro.adb.secure on debuggable or unlocked
+        # builds. Briefly expose debuggable mode while adbd starts, then
+        # restore the device property after the daemon has cached the gate.
+        if [ "$requested" = "open" ] && [ "$current_debuggable" != "1" ] && [ "$verified_state" != "orange" ]; then
+            "$prop_tool" -n ro.debuggable 1 >/dev/null 2>&1 || {
+                [ "$current_prop" != "$desired_prop" ] && "$prop_tool" -n ro.adb.secure "$current_prop" >/dev/null 2>&1
+                echo -e "${PINK}Error: Could not prepare adbd to start without RSA authentication.${NC}"
+                return 1
+            }
+            temporary_debuggable=1
+        fi
+        stop adbd
+        start adbd
+        sleep 1
+        if [ "$temporary_debuggable" = "1" ]; then
+            "$prop_tool" -n ro.debuggable "$current_debuggable" >/dev/null 2>&1 || {
+                echo -e "${PINK}Error: adbd started, but ro.debuggable could not be restored.${NC}"
+                return 1
+            }
+        fi
+        local port=$(getprop service.adb.tcp.port 2>/dev/null | tr -d '[:space:]')
+        if [ -n "$port" ] && [ "$port" != "-1" ] && [ "$port" != "0" ] && [ -s "$BIND_FILE" ]; then
+            apply_iptables_rules "$port" "$BIND_FILE"
+        fi
+    fi
+
+    echo "$requested" > "$AUTH_MODE_FILE"
+    chmod 600 "$AUTH_MODE_FILE" 2>/dev/null
+
+    if [ "$requested" = "open" ]; then
+        echo -e "${YELLOW}ADB RSA authentication is disabled. Any client that can reach an active ADB transport may connect.${NC}"
+    else
+        echo -e "${GREEN}ADB RSA authentication is required.${NC}"
+    fi
+}
+
+auth_command() {
+    case "$1" in
+        open|secure)
+            set_auth_mode "$1"
+            ;;
+        status)
+            local mode=$(auth_mode)
+            local supported=0
+            auth_is_supported && supported=1
+            echo "AUTH_MODE=$mode"
+            echo "AUTH_SUPPORTED=$supported"
+            echo "AUTH_AVAILABLE=$( [ -n "$(find_resetprop)" ] && echo 1 || echo 0 )"
+            echo "ADB_SECURE=$(getprop ro.adb.secure 2>/dev/null | tr -d '[:space:]')"
+            ;;
+        apply-boot)
+            if [ "$(auth_mode)" = "open" ]; then
+                set_auth_mode open
+            fi
+            ;;
+        *)
+            echo -e "${PINK}Usage: wadbd auth [open|secure|status]${NC}"
+            return 2
             ;;
     esac
 }
@@ -708,6 +848,9 @@ case "$1" in
         ;;
     notify)
         notify_command "$2"
+        ;;
+    auth)
+        auth_command "$2"
         ;;
     --clear-keys)
         remove_keys

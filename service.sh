@@ -1,6 +1,5 @@
 #!/system/bin/sh
-# WADBD v5.2 service.sh — boot persistence for wireless ADB + interface/subnet binding + session monitor
-# Runs as part of KernelSU/Magisk boot stage
+# WADBD boot service — restore authentication mode, wireless ADB, bindings, and alerts.
 
 BOOT_FLAG="/data/adb/wadbd/enable_on_boot"
 BIND_FILE="/data/adb/wadbd/bind_ifaces"
@@ -9,6 +8,13 @@ BIND_FILE="/data/adb/wadbd/bind_ifaces"
 while [ "$(getprop sys.boot_completed)" != "1" ]; do
     sleep 2
 done
+
+# Restore the saved ADB authentication choice before configuring wireless ADB.
+# The command fails closed when the device build does not permit auth overrides.
+WADBD_BIN="/data/adb/modules/wadbd/system/bin/wadbd"
+if [ -x "$WADBD_BIN" ]; then
+    "$WADBD_BIN" auth apply-boot >/dev/null 2>&1
+fi
 
 # Check if wireless ADB on boot is enabled
 if [ -f "$BOOT_FLAG" ]; then

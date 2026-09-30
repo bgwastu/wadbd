@@ -1,16 +1,27 @@
 #!/system/bin/sh
 
-# WADBD Connection Monitor Daemon
-# Detects active wireless ADB TCP sessions and dispatches events to WADBD companion app
+# Watch wireless ADB TCP sessions and post shell-owned connection alerts.
 
 PERSIST_PATH="/data/adb/wadbd"
 PID_FILE="$PERSIST_PATH/monitor.pid"
 CONFIG_FILE="$PERSIST_PATH/notify_conn"
+TAG="wadbd_session"
+NOTIF_ID=2020
 
 echo $$ > "$PID_FILE"
 
+clear_notification() {
+    su 2000 -c "service call notification 8 s16 'com.android.shell' s16 'com.android.shell' s16 '$TAG' i32 $NOTIF_ID i32 0" >/dev/null 2>&1
+    su 2000 -c "cmd notification snooze --for 1 '0|com.android.shell|$NOTIF_ID|$TAG|2000'" >/dev/null 2>&1
+}
+
+post_notification() {
+    local text="$1"
+    su 2000 -c "cmd notification post -S bigtext -t 'Wireless ADB Active' -i @android:drawable/stat_sys_warning '$TAG' '$text'" >/dev/null 2>&1
+}
+
 cleanup() {
-    am broadcast -n net.wastu.wadbd/.service.SessionReceiver -a net.wastu.wadbd.ACTION_SESSION_UPDATE --ei count 0 >/dev/null 2>&1
+    clear_notification
     rm -f "$PID_FILE"
     exit 0
 }
@@ -21,10 +32,10 @@ prev_count=0
 prev_clients=""
 
 while true; do
-    # Check if notification is disabled by user config
+    # Missing configuration means notifications are enabled.
     if [ -f "$CONFIG_FILE" ] && [ "$(cat "$CONFIG_FILE" 2>/dev/null | tr -d '[:space:]')" = "0" ]; then
         if [ "$prev_count" -gt 0 ]; then
-            am broadcast -n net.wastu.wadbd/.service.SessionReceiver -a net.wastu.wadbd.ACTION_SESSION_UPDATE --ei count 0 >/dev/null 2>&1
+            clear_notification
             prev_count=0
             prev_clients=""
         fi
@@ -32,13 +43,10 @@ while true; do
         continue
     fi
 
-    # Read current wireless ADB port
     port=$(getprop service.adb.tcp.port 2>/dev/null | tr -d '[:space:]')
-
-    # If ADB over TCP is disabled or not set, clear notif and sleep
     if [ -z "$port" ] || [ "$port" = "-1" ] || [ "$port" = "0" ]; then
         if [ "$prev_count" -gt 0 ]; then
-            am broadcast -n net.wastu.wadbd/.service.SessionReceiver -a net.wastu.wadbd.ACTION_SESSION_UPDATE --ei count 0 >/dev/null 2>&1
+            clear_notification
             prev_count=0
             prev_clients=""
         fi
@@ -46,43 +54,28 @@ while true; do
         continue
     fi
 
-    # Query established TCP connections on port
     conns=$(ss -Htn state established "( sport = :$port )" 2>/dev/null)
-    external_conns=$(echo "$conns" | awk '{print $4}' | grep -vE '^(127\.0\.0\.1|\[::1\]):' | grep -v '^$')
+    # ss columns are state, queues, local endpoint, then remote/client endpoint.
+    external_conns=$(echo "$conns" | awk '{print $5}' | grep -vE '^(127\.0\.0\.1|\[::1\]):' | grep -v '^$')
 
     if [ -n "$external_conns" ]; then
         count=$(echo "$external_conns" | wc -l | tr -d '[:space:]')
         client_ips=$(echo "$external_conns" | sed -E 's/:[0-9]+$//' | sed 's/^\[//;s/\]$//' | sort -u | paste -sd, - | sed 's/,/, /g')
 
-        if [ "$count" -ne "$prev_count" ] || [ "$client_ips" != "$prev_clients" ]; then
-            # Match peer name from adb_keys / mesh if available
-            peer_name=""
-            if [ -f "/data/misc/adb/adb_keys" ]; then
-                for k in $(awk '{print $NF}' /data/misc/adb/adb_keys 2>/dev/null); do
-                    h=$(echo "$k" | cut -d'@' -f2)
-                    if [ -n "$h" ] && [ "$h" != "Unknown" ]; then
-                        resolved_ip=$(ping -c 1 -W 1 "$h.mesh" 2>/dev/null | head -n 1 | grep -oE '\(([0-9a-fA-F:\.]+)\)' | head -n 1 | tr -d '()')
-                        [ -z "$resolved_ip" ] && resolved_ip=$(ping6 -c 1 -W 1 "$h.mesh" 2>/dev/null | head -n 1 | grep -oE '\(([0-9a-fA-F:\.]+)\)' | head -n 1 | tr -d '()')
-                        if [ -n "$resolved_ip" ] && echo "$client_ips" | grep -q "$resolved_ip"; then
-                            peer_name="$k"
-                            break
-                        fi
-                    fi
-                done
+        if [ "$count" != "$prev_count" ] || [ "$client_ips" != "$prev_clients" ]; then
+            if [ "$count" -eq 1 ]; then
+                text="Connected: $client_ips"
+            else
+                text="$count active sessions: $client_ips"
             fi
-            display_client="${peer_name:-$client_ips}"
-
-            # Dispatch session event to native companion app
-            am broadcast -n net.wastu.wadbd/.service.SessionReceiver -a net.wastu.wadbd.ACTION_SESSION_UPDATE --es client "$display_client" --ei count $count >/dev/null 2>&1
-
+            post_notification "$text"
             prev_count=$count
             prev_clients="$client_ips"
         fi
         sleep 2
     else
-        # No clients connected
         if [ "$prev_count" -gt 0 ]; then
-            am broadcast -n net.wastu.wadbd/.service.SessionReceiver -a net.wastu.wadbd.ACTION_SESSION_UPDATE --ei count 0 >/dev/null 2>&1
+            clear_notification
             prev_count=0
             prev_clients=""
         fi

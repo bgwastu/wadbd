@@ -1,3 +1,15 @@
+# v7.1
+- Allow the RSA bypass toggle on locked production builds when resetprop is available.
+- Show each authorized key's full SHA-256 fingerprint without its user or host comment.
+- Show only connection addresses permitted by the configured network bindings.
+
+# v7.0
+- Removed the companion APK requirement; controls and connection alerts run through the module WebUI and shell.
+- Restored shell-owned wireless ADB connection notifications with an on/off setting.
+- Added a guarded option to disable ADB RSA authentication on supported unlocked or debuggable builds.
+- Rebuilt the WebUI and simplified the README and module name.
+- Preserved interface, subnet, VPN tunnel, boot, and authorized-key controls.
+
 # v6.0
 - Native Material 3 Android App embedded directly into the module zip (system/priv-app/Wadbd/)
 - Full Material You dynamic theming, LargeTopAppBar with collapsible scrolling, and edge-to-edge layout

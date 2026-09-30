@@ -1,131 +1,185 @@
-<!DOCTYPE html>
-<!-- WADBD (fork: interface binding) 
-Based on: https://github.com/Magisk-Modules-Alt-Repo/wadbd -->
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>ADB Manager</title>
-    <link rel="stylesheet" type="text/css" href="https://mui.kernelsu.org/mmrl/insets.css">
-    <link rel="stylesheet" type="text/css" href="https://mui.kernelsu.org/mmrl/colors.css">
-    <link rel="stylesheet" href="assets/index.min.css">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>WADBD</title>
+    <link rel="stylesheet" href="assets/app.css">
 </head>
 <body>
-    <div class="mmrl-safe-area">
-        <div class="header">
-            <button class="settings-button" onclick="toggleSettingsMenu()">☰</button>
-            <h1>ADB Manager</h1>
-        </div>
-        <div id="settingsMenu" class="settings-menu" style="display: none;">
-            <button onclick="toggleTheme()">Change Theme</button>
-            <div class="setting-item">
-                <span>Notifications</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="notificationToggle">
-                    <span class="toggle-slider"></span>
-                </label>
+    <div class="page-shell">
+        <header class="topbar">
+            <div>
+                <p class="brand">WADBD</p>
+                <p class="topbar-subtitle">Wireless ADB controller</p>
             </div>
-            <button onclick="toggleInfoDialog()">About</button>
-        </div>
-        <div id="infoDialog" class="dialog-overlay" style="display: none;">
-            <div class="dialog-content">
-                <h3>WADBD</h3>
-                <p>WADBD is a Magisk/KernelSU module to control the wireless ADB daemon. This fork adds per-interface binding — restrict ADB to specific network interfaces via iptables.</p>
-                <p><strong>Version:</strong> 
-                    <span id="wadbdVersion" class="version-value" onclick="openLink('https://github.com/Magisk-Modules-Alt-Repo/wadbd')">Loading...</span>
-                </p>
-                <p class="watermark">WebUI by rhythmcache · fork: interface binding</p>
-                <p>
-                    <a href="javascript:void(0)" onclick="openLink('https://github.com/rhythmcache')">GitHub</a> | 
-                    <a href="javascript:void(0)" onclick="openLink('https://t.me/dusk133')">Telegram</a>
-                </p>
-                <button class="close-button" onclick="toggleInfoDialog()">Close</button>
-            </div>
-        </div>
-        <div id="ksuDialog" class="dialog-overlay" style="display: none;">
-            <div class="dialog-content">
-                <h3>MMRL Detected</h3>
-                <p>This module requires KernelSU Advanced API access to function.</p>
-                <button id="requestKsuApiButton" class="text-button">Grant Access</button>
-            </div>
-        </div>
-        <div id="unsupportedDialog" class="dialog-overlay" style="display: none;">
-            <div class="dialog-content">
-                <h3>Unsupported Environment</h3>
-                <p>ksu is not defined. Your current environment is not supported.</p>
-            </div>
-        </div>
-        <div class="container">
-            <div class="card">
-                <div class="card-header">
-                    <h2>ADB Settings</h2>
+            <button id="refreshButton" class="icon-button" type="button" aria-label="Refresh status" title="Refresh status">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.9-3M4 4v4h4M4 13a8 8 0 0 0 14.9 3M20 20v-4h-4"/></svg>
+            </button>
+        </header>
+
+        <main>
+            <section id="environmentNotice" class="notice-card" hidden aria-live="polite">
+                <div>
+                    <h2>Root manager access unavailable</h2>
+                    <p id="environmentMessage">Open this page from KernelSU, APatch, or a compatible WebUI manager.</p>
                 </div>
-                <div class="settings-container">
-                    <div class="setting-item">
-                        <span>USB Debugging</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="usbDebugToggle">
-                            <span class="toggle-slider"></span>
+                <button id="requestApiButton" class="button secondary" type="button" hidden>Request access</button>
+            </section>
+
+            <section class="card hero-card" aria-labelledby="adbHeading">
+                <div class="hero-top">
+                    <div>
+                        <p class="eyebrow">WIRELESS ADB</p>
+                        <h1 id="adbHeading">Checking status</h1>
+                        <p id="adbSummary" class="muted">Reading device state…</p>
+                    </div>
+                    <label class="switch-control" for="wirelessToggle">
+                        <span class="sr-only">Wireless ADB</span>
+                        <input id="wirelessToggle" type="checkbox" role="switch" disabled>
+                        <span class="switch-track" aria-hidden="true"></span>
+                    </label>
+                </div>
+
+                <div class="port-row">
+                    <label for="portInput">ADB port</label>
+                    <div class="port-actions">
+                        <input id="portInput" type="number" inputmode="numeric" min="1" max="65535" value="5555" aria-label="ADB port">
+                        <button id="applyPortButton" class="button secondary" type="button" disabled>Apply</button>
+                    </div>
+                </div>
+
+                <div class="status-row" aria-live="polite">
+                    <span>Daemon <strong id="daemonState">—</strong></span>
+                    <span>Clients <strong id="clientState">—</strong></span>
+                </div>
+
+                <details id="connectionDetails" class="connection-details">
+                    <summary>
+                        <span>Connection commands</span>
+                        <span id="connectionSummary" class="muted">Available when Wireless ADB is on</span>
+                    </summary>
+                    <div id="connectionCommands" class="command-list">
+                        <p class="muted">Enable Wireless ADB to see commands for this device.</p>
+                    </div>
+                </details>
+            </section>
+
+            <div class="content-grid">
+                <section class="card" aria-labelledby="bootHeading">
+                    <div class="card-heading">
+                        <div>
+                            <p class="eyebrow">STARTUP</p>
+                            <h2 id="bootHeading">Start on boot</h2>
+                        </div>
+                        <label class="switch-control" for="bootToggle">
+                            <span class="sr-only">Start Wireless ADB on boot</span>
+                            <input id="bootToggle" type="checkbox" role="switch" disabled>
+                            <span class="switch-track" aria-hidden="true"></span>
                         </label>
                     </div>
-                    <div class="setting-item">
-                        <span>Wireless ADB</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="wirelessToggle">
-                            <span class="toggle-slider"></span>
+                    <p class="muted">Restore Wireless ADB after the phone finishes booting.</p>
+                    <p id="bootSummary" class="inline-status" aria-live="polite">Checking boot setting…</p>
+                </section>
+
+                <section class="card" aria-labelledby="notificationHeading">
+                    <div class="card-heading">
+                        <div>
+                            <p class="eyebrow">ALERTS</p>
+                            <h2 id="notificationHeading">Connection alerts</h2>
+                        </div>
+                        <label class="switch-control" for="notificationToggle">
+                            <span class="sr-only">Connection alerts</span>
+                            <input id="notificationToggle" type="checkbox" role="switch" disabled>
+                            <span class="switch-track" aria-hidden="true"></span>
                         </label>
                     </div>
-                    <div class="port-control">
-                        <input type="number" id="portInput" class="port-input" placeholder="Port (default: 5555)" value="5555">
-                        <button id="changePortBtn" class="action-button">Change Port</button>
-                    </div>
-                    <div class="setting-item">
-                        <span>Enable on Boot</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="bootToggle">
-                            <span class="toggle-slider"></span>
+                    <p class="muted">Show a shell notification when an ADB client connects. The alert clears when the client disconnects.</p>
+                    <p id="notificationSummary" class="inline-status" aria-live="polite">Checking alert setting…</p>
+                </section>
+
+                <section class="card auth-card" aria-labelledby="authHeading">
+                    <div class="card-heading">
+                        <div>
+                            <p class="eyebrow">ACCESS</p>
+                            <h2 id="authHeading">Allow anyone</h2>
+                        </div>
+                        <label class="switch-control" for="authToggle">
+                            <span class="sr-only">Allow unauthenticated ADB clients</span>
+                            <input id="authToggle" type="checkbox" role="switch" disabled aria-describedby="authHelp">
+                            <span class="switch-track" aria-hidden="true"></span>
                         </label>
                     </div>
-                </div>
+                    <p id="authHelp" class="muted">Skip the RSA trust prompt for ADB clients. This may also affect USB ADB. It does not grant root by itself.</p>
+                    <p id="authSummary" class="inline-status" aria-live="polite">Checking device support…</p>
+                </section>
+
+                <section class="card network-card" aria-labelledby="networkHeading">
+                    <div class="card-heading">
+                        <div>
+                            <p class="eyebrow">NETWORK</p>
+                            <h2 id="networkHeading">Connection limits</h2>
+                        </div>
+                        <button id="refreshBindingsButton" class="button text-button" type="button" disabled>Refresh</button>
+                    </div>
+                    <p class="muted">When limits are set, only selected interfaces or subnets can reach ADB.</p>
+                    <div id="bindingList" class="binding-list" aria-live="polite">
+                        <p class="placeholder">Loading network interfaces…</p>
+                    </div>
+                    <form id="customTargetForm" class="custom-target-form">
+                        <label for="customTargetInput">Add interface or IPv4 subnet</label>
+                        <div class="port-actions">
+                            <input id="customTargetInput" type="text" autocomplete="off" placeholder="wlan0 or 192.168.1.0/24" disabled>
+                            <button class="button secondary" type="submit" disabled>Add</button>
+                        </div>
+                    </form>
+                    <p id="bindingSummary" class="inline-status" aria-live="polite">Loading current limits…</p>
+                </section>
+
+                <section class="card keys-card" aria-labelledby="keysHeading">
+                    <div class="card-heading">
+                        <div>
+                            <p class="eyebrow">RSA AUTHENTICATION</p>
+                            <h2 id="keysHeading">Authorized keys</h2>
+                        </div>
+                        <button id="refreshKeysButton" class="button text-button" type="button" disabled>Refresh</button>
+                    </div>
+                    <p id="keysDescription" class="muted">SHA-256 fingerprints for authorized ADB keys.</p>
+                    <div id="keyList" class="key-list" aria-live="polite">
+                        <p class="placeholder">Loading authorized keys…</p>
+                    </div>
+                    <div class="button-row">
+                        <button id="importKeyButton" class="button secondary" type="button" disabled>Import key</button>
+                        <button id="clearKeysButton" class="button danger-button" type="button" disabled>Revoke all</button>
+                    </div>
+                    <p id="keyModeNote" class="inline-status" hidden>Keys are kept, but are not enforced while unauthenticated mode is active.</p>
+                </section>
             </div>
-            <div class="card" id="interfaceBindingCard">
-                <h2>Interface Binding</h2>
-                <p class="binding-description">Restrict wireless ADB to specific network interfaces only. When bound, ADB accepts connections only on the selected interfaces.</p>
-                <div class="binding-list" id="bindingList">
-                    <div class="info-message">Loading interfaces...</div>
-                </div>
-            </div>
-            <div class="card">
-                <h2>Status</h2>
-                <div class="status" id="statusOutput"></div>
-            </div>
-            <div class="card" id="keyManagementCard">
-                <h2>Authorized Keys</h2>
-                <p class="binding-description">Devices authorized to connect via ADB without the trust dialog. Remove any key to revoke access immediately.</p>
-                <div class="keyst-list" id="keyList">
-                    <div class="info-message">Loading keys...</div>
-                </div>
-                <div class="keyst-actions">
-                    <button id="refreshKeysBtn" class="action-button">Refresh</button>
-                    <button id="clearAllKeysBtn" class="action-button danger">Clear All</button>
-                    <button id="importKeyBtn" class="action-button">Import Key</button>
-                </div>
-            </div>
-            <div class="card">
-                <h2>Connection Guide</h2>
-                <div class="connection-info" id="connectionInfo"></div>
-            </div>
-            <div class="card">
-                <h2>Device Information</h2>
-                <div class="device-info" id="deviceInfo"></div>
-            </div>
-        </div>
-        <footer class="footer">
-            <img src="assets/github.png" alt="GitHub" onclick="openLink('https://github.com/rhythmcache')">
-            <img src="assets/telegram.png" alt="Telegram" onclick="openLink('https://t.me/dusk133')">
-        </footer>
+
+            <footer class="page-footer">
+                <span>WADBD</span>
+                <span id="versionLabel">Wireless ADB module</span>
+            </footer>
+        </main>
     </div>
-    <script src="assets/index.min.js"></script>
-    <script src="assets/keyst.js"></script>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+    <div id="importDialog" class="dialog-backdrop" hidden>
+        <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="importDialogTitle">
+            <h2 id="importDialogTitle">Import an ADB public key</h2>
+            <p class="muted">Enter the key file path on this phone, such as <code>/sdcard/Download/adbkey.pub</code>.</p>
+            <label for="keyPathInput">File path</label>
+            <input id="keyPathInput" type="text" autocomplete="off" placeholder="/sdcard/Download/adbkey.pub">
+            <p id="importError" class="form-error" hidden></p>
+            <div class="button-row end">
+                <button id="cancelImportButton" class="button text-button" type="button">Cancel</button>
+                <button id="confirmImportButton" class="button primary-button" type="button">Import</button>
+            </div>
+        </section>
+    </div>
+
+    <script src="assets/app.js"></script>
 </body>
 </html>
