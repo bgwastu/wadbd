@@ -321,6 +321,10 @@ list_interfaces() {
     return 0
 }
 start_monitor() {
+    local config_file="$PERSIST_PATH/notify_conn"
+    if [ -f "$config_file" ] && [ "$(cat "$config_file" 2>/dev/null | tr -d '[:space:]')" = "0" ]; then
+        return 0
+    fi
     local pid_file="$PERSIST_PATH/monitor.pid"
     if [ -f "$pid_file" ]; then
         local old_pid=$(cat "$pid_file" 2>/dev/null | tr -d '[:space:]')
@@ -364,7 +368,7 @@ notify_command() {
             ;;
         off|disable)
             echo "0" > "$config_file"
-            clear_connection_notification
+            stop_monitor
             echo -e "${GREEN} => Active connection notification disabled.${NC}"
             ;;
         status)

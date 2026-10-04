@@ -1,3 +1,10 @@
+# v7.2
+- Optimize connection monitor to drastically reduce battery and CPU overhead.
+- Replace multi-process shell pipeline with a single-pass awk stream parser.
+- Fix peer address parsing column index in ss output.
+- Implement adaptive sleep intervals (15s cadence) to eliminate timer wakeups.
+- Terminate monitor daemon cleanly when connection notifications are disabled.
+
 # v7.1
 - Allow the RSA bypass toggle on locked production builds when resetprop is available.
 - Show each authorized key's full SHA-256 fingerprint without its user or host comment.

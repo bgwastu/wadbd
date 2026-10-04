@@ -1,7 +1,7 @@
 id=wadbd
 name=WADBD
-version=7.1
-versionCode=28
+version=7.2
+versionCode=29
 author=bgwastu
 description=Allow ADB accessed via wirelessly.
 updateJson=https://raw.githubusercontent.com/bgwastu/wadbd/master/updateJson

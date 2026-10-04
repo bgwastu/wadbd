@@ -32,15 +32,9 @@ prev_count=0
 prev_clients=""
 
 while true; do
-    # Missing configuration means notifications are enabled.
+    # Exit cleanly if notifications are disabled to save battery.
     if [ -f "$CONFIG_FILE" ] && [ "$(cat "$CONFIG_FILE" 2>/dev/null | tr -d '[:space:]')" = "0" ]; then
-        if [ "$prev_count" -gt 0 ]; then
-            clear_notification
-            prev_count=0
-            prev_clients=""
-        fi
-        sleep 5
-        continue
+        cleanup
     fi
 
     port=$(getprop service.adb.tcp.port 2>/dev/null | tr -d '[:space:]')
@@ -50,17 +44,28 @@ while true; do
             prev_count=0
             prev_clients=""
         fi
-        sleep 3
+        sleep 15
         continue
     fi
 
-    conns=$(ss -Htn state established "( sport = :$port )" 2>/dev/null)
-    # ss columns are state, queues, local endpoint, then remote/client endpoint.
-    external_conns=$(echo "$conns" | awk '{print $5}' | grep -vE '^(127\.0\.0\.1|\[::1\]):' | grep -v '^$')
+    # Single-pass parsing of active connections using awk; column 4 is peer address.
+    summary=$(ss -Htn state established "( sport = :$port )" 2>/dev/null | awk '
+    {
+        ip = $4
+        sub(/:[0-9]+$/, "", ip)
+        gsub(/^[\[]|\]$/, "", ip)
+        if (ip != "" && ip != "127.0.0.1" && ip != "::1" && !seen[ip]++) {
+            ips = (ips ? ips ", " : "") ip
+            count++
+        }
+    }
+    END {
+        if (count > 0) print count "|" ips
+    }')
 
-    if [ -n "$external_conns" ]; then
-        count=$(echo "$external_conns" | wc -l | tr -d '[:space:]')
-        client_ips=$(echo "$external_conns" | sed -E 's/:[0-9]+$//' | sed 's/^\[//;s/\]$//' | sort -u | paste -sd, - | sed 's/,/, /g')
+    if [ -n "$summary" ]; then
+        count=${summary%%|*}
+        client_ips=${summary#*|}
 
         if [ "$count" != "$prev_count" ] || [ "$client_ips" != "$prev_clients" ]; then
             if [ "$count" -eq 1 ]; then
@@ -71,14 +76,18 @@ while true; do
             post_notification "$text"
             prev_count=$count
             prev_clients="$client_ips"
+            sleep 5
+        else
+            # Connected and unchanged — sleep longer to preserve battery
+            sleep 15
         fi
-        sleep 2
     else
         if [ "$prev_count" -gt 0 ]; then
             clear_notification
             prev_count=0
             prev_clients=""
         fi
-        sleep 3
+        # Idle — sleep 15s to avoid frequent CPU wakeups
+        sleep 15
     fi
 done

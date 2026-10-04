@@ -52,9 +52,11 @@ if [ -f "$BOOT_FLAG" ]; then
             iptables -A INPUT -p tcp --dport "$port" -j DROP
         fi
 
-        # Start connection monitor daemon
+        # Start connection monitor daemon if notifications are enabled
         if [ -x "/data/adb/modules/wadbd/system/bin/wadbd-monitor" ]; then
-            nohup /data/adb/modules/wadbd/system/bin/wadbd-monitor >/dev/null 2>&1 &
+            if [ ! -f "/data/adb/wadbd/notify_conn" ] || [ "$(cat /data/adb/wadbd/notify_conn 2>/dev/null | tr -d '[:space:]')" != "0" ]; then
+                nohup /data/adb/modules/wadbd/system/bin/wadbd-monitor >/dev/null 2>&1 &
+            fi
         fi
     fi
 fi
