@@ -1,13 +1,17 @@
+#!/system/bin/sh
 ###########################################
 ## This file is a part of WADBD
-# by @duds9
 ###########################################
-if pm list packages | grep -q "io.github.a13e300.ksuwebui"; then
-    echo "- Launching WebUI in KSUWebUIStandalone..."
-    am start -n "io.github.a13e300.ksuwebui/.WebUIActivity" -e id "wadbd"
-elif pm list packages | grep -q "com.dergoogler.mmrl"; then
-    echo "- Launching WebUI in MMRL WebUI..."
-    am start -n "com.dergoogler.mmrl/.ui.activity.webui.WebUIActivity" -e MOD_ID "wadbd"
+
+ksu_webui=$(pm list packages 2>/dev/null | grep -E "ksuwebui" | head -1 | cut -d: -f2)
+mmrl_pkg=$(pm list packages 2>/dev/null | grep -E "mmrl" | head -1 | cut -d: -f2)
+
+if [ -n "$ksu_webui" ]; then
+    echo "- Launching WebUI in KSUWebUI ($ksu_webui)..."
+    am start -n "$ksu_webui/.WebUIActivity" -e id "wadbd"
+elif [ -n "$mmrl_pkg" ]; then
+    echo "- Launching WebUI in MMRL ($mmrl_pkg)..."
+    am start -n "$mmrl_pkg/com.dergoogler.mmrl.ui.activity.webui.WebUIActivity" -e MOD_ID "wadbd"
 else
-    echo "Error: Can't Launch WebUI, KSUWebUI or MMRL not found."
+    /data/adb/modules/wadbd/system/bin/wadbd status
 fi
