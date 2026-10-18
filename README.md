@@ -10,6 +10,11 @@ WADBD is a module that allows you to control Android Wireless ADB from any netwo
 - Show shell notifications when an ADB client connects. Notifications can be turned off.
 - View, import, and revoke authorized ADB keys.
 - Toggle ADB RSA authentication from the WebUI.
+- Self-healing supervisor daemon revives `adbd` if killed by Android OS or USB events.
+- Pauses FunctionFS USB endpoint polling when idle, eliminating 1s wakeups and battery drain.
+- Atomic dual-stack netfilter firewall (IPv4 and IPv6) with dedicated chains.
+- Real-time kernel Netlink monitor adapts firewall rules dynamically on Wi-Fi and VPN changes.
+- Instant JSON diagnostics API (`wadbd status --json`).
 
 ## Install
 

@@ -1,6 +1,6 @@
 {
-    "versionCode": 29,
-    "version": "7.2",
-    "zipUrl": "https://github.com/bgwastu/wadbd/releases/download/v7.2/wadbd-v7.2.zip",
+    "versionCode": 30,
+    "version": "8.0",
+    "zipUrl": "https://github.com/bgwastu/wadbd/releases/download/v8.0/wadbd-v8.0.zip",
     "changelog": "https://raw.githubusercontent.com/bgwastu/wadbd/master/changelog.md"
 }

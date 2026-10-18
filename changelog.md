@@ -1,3 +1,15 @@
+# v8.0 - Native Supervisor Rewrite
+- Replaced shell script architecture with high-performance native ARM64 supervisor daemon.
+- Supervised adbd lifecycle: automatically revives adbd if terminated by OS, LMK, or USB disconnects.
+- Fixed FunctionFS spin loop: pauses FunctionFS USB thread when wireless ADB is active, eliminating 1s wakeups and battery drain.
+- Added Xiaomi HyperOS immunity: sets persist.adb.tls_server.enable to prevent OEM stop adbd triggers.
+- Atomic dual-stack firewall: dedicated WADBD_INPUT and WADBD6_INPUT chains with atomic xtables lock wait.
+- Closed IPv6 blindspot: full filtering for both IPv4 and IPv6 traffic.
+- Kernel Netlink listener: dynamically adapts firewall rules on network interface and IP changes without polling.
+- Aggressive TCP keepalive tuning: prunes dead/zombie sockets in 90 seconds instead of 2 hours.
+- Single-call JSON status API: modernized WebUI performance from 7 parallel su forks to <30ms single response.
+- In-memory RSA key fingerprinting: instant native SHA-256 fingerprint generation.
+
 # v7.2
 - Optimize connection monitor to drastically reduce battery and CPU overhead.
 - Replace multi-process shell pipeline with a single-pass awk stream parser.

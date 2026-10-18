@@ -1,7 +1,7 @@
 id=wadbd
 name=WADBD
-version=7.2
-versionCode=29
+version=8.0
+versionCode=30
 author=bgwastu
-description=Allow ADB accessed via wirelessly.
+description=Allow ADB accessed wirelessly with native supervisor daemon & atomic firewall.
 updateJson=https://raw.githubusercontent.com/bgwastu/wadbd/master/updateJson
