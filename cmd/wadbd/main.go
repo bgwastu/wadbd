@@ -95,10 +95,12 @@ func main() {
 			type ExtendedStatus struct {
 				supervisor.Status
 				Addresses []IfaceAddr `json:"addresses"`
+				Version   string      `json:"version,omitempty"`
 			}
 			ext := ExtendedStatus{
 				Status:    st,
 				Addresses: listActiveAddresses(st.Bindings),
+				Version:   readModuleVersion(),
 			}
 			jsonOut, _ := json.MarshalIndent(ext, "", "  ")
 			fmt.Println(string(jsonOut))
@@ -193,7 +195,12 @@ func main() {
 			}
 			fmt.Printf("%sConnection notification:%s %s\n", ColorYellow, ColorNC, state)
 			if resp != nil && resp.Success {
-				fmt.Printf("%sMonitor daemon:%s Running (PID %d)\n", ColorGreen, ColorNC, os.Getpid())
+				daemonPid := readDaemonPid()
+				if daemonPid != "" {
+					fmt.Printf("%sMonitor daemon:%s Running (PID %s)\n", ColorGreen, ColorNC, daemonPid)
+				} else {
+					fmt.Printf("%sMonitor daemon:%s Running\n", ColorGreen, ColorNC)
+				}
 			} else {
 				fmt.Printf("%sMonitor daemon:%s Stopped\n", ColorRed, ColorNC)
 			}
@@ -567,6 +574,27 @@ func getAdbSecureProp(authMode string) string {
 		return "0"
 	}
 	return "1"
+}
+
+func readDaemonPid() string {
+	data, err := os.ReadFile(config.PidFile)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
+}
+
+func readModuleVersion() string {
+	data, err := os.ReadFile("/data/adb/modules/wadbd/module.prop")
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(line, "version=") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "version="))
+		}
+	}
+	return ""
 }
 
 func hasFlag(flag string) bool {

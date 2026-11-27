@@ -165,6 +165,10 @@ func processRequest(req ipc.Request) ipc.Response {
 			port = config.DefaultPort
 		}
 
+		if cfg.Enabled && cfg.Port > 0 && cfg.Port != port {
+			_ = firewall.Clear(cfg.Port)
+		}
+
 		newCfg := updateCfg(func(c *config.Config) {
 			c.Enabled = true
 			c.Port = port

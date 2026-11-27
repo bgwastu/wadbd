@@ -61,9 +61,9 @@
         $('applyPortButton').disabled = !enabled;
         $('bootToggle').disabled = !enabled;
         $('notificationToggle').disabled = !enabled;
-        $('refreshBindingsButton').disabled = !enabled || !wirelessPort;
-        $('customTargetInput').disabled = !enabled || !wirelessPort;
-        $('customTargetForm').querySelector('button').disabled = !enabled || !wirelessPort;
+        $('refreshBindingsButton').disabled = !enabled;
+        $('customTargetInput').disabled = !enabled;
+        $('customTargetForm').querySelector('button').disabled = !enabled;
         $('refreshKeysButton').disabled = !enabled;
         $('importKeyButton').disabled = !enabled || authMode === 'open';
         $('clearKeysButton').disabled = !enabled || authMode === 'open';
@@ -115,6 +115,7 @@
         const clients = (status.sessions && Array.isArray(status.sessions)) ? status.sessions.length : 0;
         authMode = status.auth_mode === 'open' ? 'open' : 'secure';
         authSupported = Boolean(status.auth_supported);
+        if (status.version) moduleVersion = String(status.version);
 
         $('adbHeading').textContent = wirelessPort ? `Wireless ADB is on` : 'Wireless ADB is off';
         $('adbSummary').textContent = wirelessPort ? `Listening on port ${wirelessPort}.` : 'Turn it on to connect over Wi-Fi or another network.';
@@ -228,7 +229,7 @@
                 toggle.type = 'checkbox';
                 toggle.className = 'binding-toggle';
                 toggle.checked = bound.has(target);
-                toggle.disabled = !wirelessPort;
+                toggle.disabled = false;
                 toggle.setAttribute('aria-label', `${toggle.checked ? 'Remove' : 'Allow'} ${target} ${toggle.checked ? 'restriction' : 'for ADB'}`);
                 toggle.addEventListener('change', async () => {
                     toggle.disabled = true;
@@ -248,9 +249,9 @@
             $('bindingSummary').textContent = bound.size
                 ? `${bound.size} target${bound.size === 1 ? '' : 's'} selected. Other networks are blocked.`
                 : 'No limits set. All network interfaces can reach ADB.';
-            $('refreshBindingsButton').disabled = !wirelessPort;
-            $('customTargetInput').disabled = !wirelessPort;
-            $('customTargetForm').querySelector('button').disabled = !wirelessPort;
+            $('refreshBindingsButton').disabled = false;
+            $('customTargetInput').disabled = false;
+            $('customTargetForm').querySelector('button').disabled = false;
         } catch (error) {
             host.replaceChildren(makeText('p', 'placeholder', error.message || 'Could not read network interfaces.'));
             $('bindingSummary').textContent = 'Refresh to try again.';

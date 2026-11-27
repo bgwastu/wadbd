@@ -221,6 +221,8 @@ func PostNotification(text string) {
 
 // ClearNotification dismisses the active connection notification.
 func ClearNotification() {
+	_ = exec.Command("cmd", "notification", "snooze", "--for", "1", fmt.Sprintf("0|com.android.shell|0|%s|2000", NotificationTag)).Run()
+	_ = exec.Command("su", "2000", "-c", fmt.Sprintf("service call notification 8 s16 'com.android.shell' s16 'com.android.shell' s16 '%s' i32 0 i32 0", NotificationTag)).Run()
 	_ = exec.Command("su", "2000", "-c", fmt.Sprintf("service call notification 8 s16 'com.android.shell' s16 'com.android.shell' s16 '%s' i32 %d i32 0", NotificationTag, NotificationID)).Run()
 	_ = exec.Command("su", "2000", "-c", fmt.Sprintf("cmd notification snooze --for 1 '0|com.android.shell|%d|%s|2000'", NotificationID, NotificationTag)).Run()
 }

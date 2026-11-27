@@ -50,7 +50,7 @@ jobs:
         run: |
           mkdir -p system/bin
           CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o system/bin/wadbd ./cmd/wadbd
-          chmod 755 action.sh service.sh system/bin/wadbd
+          chmod 755 action.sh customize.sh post-fs-data.sh service.sh uninstall.sh system/bin/wadbd
           rm -f system/bin/wadbd-monitor
 
       - name: Package Magisk/KSU Module ZIP
@@ -59,9 +59,12 @@ jobs:
             META-INF \
             action.sh \
             changelog.md \
+            customize.sh \
             module.prop \
+            post-fs-data.sh \
             service.sh \
             system \
+            uninstall.sh \
             webroot \
             LICENSE
           cp "wadbd-v${{ env.VERSION }}.zip" wadbd.zip
